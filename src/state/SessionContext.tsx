@@ -12,6 +12,7 @@
  * sign-out, so the badge is correct across login/logout without a remount.
  */
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { AppState } from 'react-native';
 import { supabase } from '@/api/client';
 import { getNotifications, getUnreadCount, markNotificationsRead } from '@/api/notifications';
 import { subscribeToNotifications } from '@/api/realtime';
@@ -72,6 +73,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => { unsub?.(); sub.subscription.unsubscribe(); };
+  }, [load]);
+
+  // Refetch on app foreground: the realtime socket can be suspended while
+  // backgrounded and does NOT replay inserts missed during that window, so a
+  // notification that arrived in the background would otherwise leave the badge
+  // stale until the next Notifications focus. Re-pulling on 'active' keeps the
+  // app-wide unread count correct after any background/foreground transition.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active' && uidRef.current) void load();
+    });
+    return () => sub.remove();
   }, [load]);
 
   const markNotifRead = useCallback((id: string) => {
