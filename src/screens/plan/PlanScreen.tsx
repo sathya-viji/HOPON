@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import { Screen } from '@/components/layout/Screen';
@@ -22,6 +22,7 @@ import { spacing, radii, borderWidths, iconSizes, CATEGORIES } from '@/theme/tok
 import { formatDate } from '@/utils/time';
 import { usePlanDetail } from '@/api/hooks/usePlanDetail';
 import { joinPlan } from '@/api/plans';
+import { getFamiliarFaces } from '@/api/trust';
 import { errorMessage, errorCode } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import type { HomeStackParamList } from '@/navigation/types';
@@ -34,6 +35,15 @@ export function PlanScreen({ navigation, route }: Props) {
   const planId = route.params?.planId;
   const { detail, loading, error, refetch } = usePlanDetail(planId);
   const [joining, setJoining] = useState(false);
+  // My familiar-face ids — to surface "people you know" among this plan's joiners.
+  const [familiarIds, setFamiliarIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    getFamiliarFaces()
+      .then((f) => { if (!cancelled) setFamiliarIds(new Set(f.map((x) => x.user.id))); })
+      .catch(() => { /* banner just stays hidden */ });
+    return () => { cancelled = true; };
+  }, []);
 
   const backHeader = (
     <ScreenPad>
@@ -174,7 +184,11 @@ export function PlanScreen({ navigation, route }: Props) {
             )}
           </T.Meta>
         </Row>
-        <FamiliarFacesBanner faces={[]} />
+        <FamiliarFacesBanner
+          faces={joiners
+            .filter((j) => familiarIds.has(j.id))
+            .map((j) => ({ name: j.name, avatarUri: j.avatarUri ?? '' }))}
+        />
       </ScreenPad>
 
       {host ? (

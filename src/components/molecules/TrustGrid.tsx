@@ -15,7 +15,7 @@ export function TrustGrid({ hosted, joined, attendance, met }: TrustGridProps) {
   const stats = [
     { num: hosted, label: 'HOSTED' },
     { num: joined, label: 'JOINED' },
-    { num: attendance === null ? '—' : `${attendance}%`, label: 'ATTENDANCE', hi: attendance !== null && attendance >= 85 },
+    { num: attendance === null ? 'New' : `${attendance}%`, label: 'ATTENDANCE', hi: attendance !== null && attendance >= 85 },
     { num: met, label: 'MET' },
   ];
   return (

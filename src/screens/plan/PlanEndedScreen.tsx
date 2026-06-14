@@ -6,23 +6,23 @@ import { Screen } from '@/components/layout/Screen';
 import { Row } from '@/components/layout/Row';
 import { Stack } from '@/components/layout/Stack';
 import { ScreenPad } from '@/components/layout/ScreenPad';
-import { Divider } from '@/components/layout/Divider';
 import { Spacer } from '@/components/layout/Spacer';
 import { Button } from '@/components/atoms/Button';
 import { Icon } from '@/components/atoms/Icon';
+import { ActivityIndicator } from 'react-native';
 import { AvatarStack } from '@/components/molecules/AvatarStack';
 import * as T from '@/components/atoms/T';
 import { useTheme } from '@/theme';
 import { spacing, radii, iconSizes, borderWidths } from '@/theme/tokens';
-import { plans, getPlanById, getUserById } from '@/mocks';
+import { usePlanDetail } from '@/api/hooks/usePlanDetail';
 import type { HomeStackParamList } from '@/navigation/types';
 
 type Props = StackScreenProps<HomeStackParamList, 'PlanEnded'>;
 
 export function PlanEndedScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
-  const plan = getPlanById(route.params?.planId) ?? plans[1];
-  const attendees = plan.joinerIds.map((id) => getUserById(id)).filter(Boolean);
+  const planId = route.params?.planId;
+  const { detail, loading } = usePlanDetail(planId);
 
   const header = (
     <ScreenPad>
@@ -33,6 +33,28 @@ export function PlanEndedScreen({ navigation, route }: Props) {
     </ScreenPad>
   );
 
+  if (loading && !detail) {
+    return (
+      <Screen header={header}>
+        <Stack style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xxxl }}>
+          <ActivityIndicator color={colors.coral} />
+        </Stack>
+      </Screen>
+    );
+  }
+  if (!detail) {
+    return (
+      <Screen header={header}>
+        <ScreenPad style={{ paddingTop: spacing.xxxl, alignItems: 'center' }}>
+          <T.BodyMd color={colors.textSub}>This plan isn’t available.</T.BodyMd>
+        </ScreenPad>
+      </Screen>
+    );
+  }
+
+  const { plan, joiners, viewerIsHost } = detail;
+  const count = joiners.length;
+
   return (
     <Screen header={header}>
       <ScreenPad style={{ paddingTop: spacing.lg, paddingBottom: spacing.md, alignItems: 'center', borderBottomWidth: borderWidths.thin, borderBottomColor: colors.border }}>
@@ -41,22 +63,22 @@ export function PlanEndedScreen({ navigation, route }: Props) {
         <T.Meta>{plan.location}</T.Meta>
       </ScreenPad>
 
-      {attendees.length > 0 ? (
+      {count > 0 ? (
         <Pressable
           onPress={() => navigation.navigate('Endorse', { planId: plan.id })}
           style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, marginHorizontal: spacing.screenPx, marginVertical: spacing.sm, borderWidth: borderWidths.medium, borderRadius: radii.lg, borderColor: colors.border, backgroundColor: colors.surface }}
         >
-          <AvatarStack uris={attendees.map((a) => a!.avatarUri ?? '').slice(0, 3)} max={3} size={36} borderColor={colors.bg} />
+          <AvatarStack uris={joiners.map((a) => a.avatarUri ?? '').slice(0, 3)} max={3} size={36} borderColor={colors.bg} />
           <Stack style={{ flex: 1 }}>
-            <T.LabelMd>Mark attendance & endorse</T.LabelMd>
-            <T.Meta>{attendees.length} attendee{attendees.length === 1 ? '' : 's'} · Tap to review</T.Meta>
+            <T.LabelMd>{viewerIsHost ? 'Mark attendance & endorse' : 'Endorse your crew'}</T.LabelMd>
+            <T.Meta>{count} attendee{count === 1 ? '' : 's'} · Tap to review</T.Meta>
           </Stack>
           <Icon name="chevron-right" size={iconSizes.sm} color={colors.textDim} />
         </Pressable>
       ) : null}
 
       <Pressable
-        onPress={() => navigation.getParent()?.navigate('RecapsTab' as never)}
+        onPress={() => (navigation.getParent() as any)?.navigate('RecapsTab', { screen: 'RecapPost', params: { planId: plan.id } })}
         style={{ padding: spacing.md, marginHorizontal: spacing.screenPx, marginVertical: spacing.md, borderRadius: radii.lg, backgroundColor: colors.cost.copayBg }}
       >
         <Row gap="sm" style={{ marginBottom: spacing.sm }}>
@@ -69,7 +91,7 @@ export function PlanEndedScreen({ navigation, route }: Props) {
       <Stack gap="sm" style={{ padding: spacing.md, marginHorizontal: spacing.screenPx, marginBottom: spacing.md, borderRadius: radii.lg, backgroundColor: colors.cost.freeBg }}>
         <Row gap="sm">
           <Icon name="users" size={iconSizes.md} color={colors.cost.freeFg} />
-          <T.LabelMd color={colors.cost.freeFg}>+{attendees.length} to Familiar Faces</T.LabelMd>
+          <T.LabelMd color={colors.cost.freeFg}>+{count} to Familiar Faces</T.LabelMd>
         </Row>
         <T.MetaXs color={colors.cost.freeFg}>These people are now in your social graph. You'll see if you cross paths again.</T.MetaXs>
         <Pressable

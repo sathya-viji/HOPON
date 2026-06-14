@@ -15,7 +15,7 @@ export type GenderPref = 'all' | 'women' | 'men';
 export type PlanType = 'open' | 'closed';
 export type PlanStatus = 'active' | 'full' | 'cancelled' | 'expired' | 'ended';
 export type UrgencyTier = 'now' | 'soon' | 'later';
-export type MemberStatus = 'joined' | 'requested' | 'approved' | 'declined' | 'attended';
+export type MemberStatus = 'joined' | 'requested' | 'approved' | 'declined' | 'attended' | 'noshow';
 
 /**
  * Lightweight host summary embedded on Plan by the API mapper, so list rows can

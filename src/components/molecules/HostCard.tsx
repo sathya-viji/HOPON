@@ -33,14 +33,10 @@ export function HostCard({ host, onPress }: HostCardProps) {
           ) : null}
         </View>
         <View style={styles.metaRow}>
-          {host.attendanceScore !== null ? (
-            <>
-              <Text style={[styles.metaText, { color: colors.green }]}>
-                {host.attendanceScore}% attendance
-              </Text>
-              <Text style={[styles.dot, { color: colors.textGhost }]}>·</Text>
-            </>
-          ) : null}
+          <Text style={[styles.metaText, { color: colors.green }]}>
+            {host.attendanceScore !== null ? `${host.attendanceScore}% attendance` : 'New'}
+          </Text>
+          <Text style={[styles.dot, { color: colors.textGhost }]}>·</Text>
           <Text style={[styles.metaText, { color: colors.textSub }]}>
             {host.plansHosted} hosted
           </Text>

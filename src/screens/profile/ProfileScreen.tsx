@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { ScrollView as GestureScrollView } from 'react-native-gesture-handler';
 import type { StackScreenProps } from '@react-navigation/stack';
 import { Screen } from '@/components/layout/Screen';
@@ -20,11 +21,14 @@ import { InterestPills } from '@/components/molecules/InterestPills';
 import { SocialLinks } from '@/components/molecules/SocialLinks';
 import { useTheme } from '@/theme';
 import { spacing, borderWidths, radii, iconSizes, avatarSizes, HIT_SLOP, CATEGORIES } from '@/theme/tokens';
-import { CURRENT_USER_ID, getUserById, plans, recaps, users } from '@/mocks';
+import { CURRENT_USER_ID, getUserById, plans, recaps } from '@/mocks';
 import { RecapCard } from '@/components/molecules/RecapCard';
 import { PlanHistoryRow } from '@/components/molecules/PlanHistoryRow';
 import { planDetailRoute } from '@/utils/plan';
 import { useToast } from '@/hooks/useToast';
+import { getMyProfile } from '@/api/users';
+import { getEndorsementSummary, getFamiliarFaces, type EndorsementCount, type FamiliarFace } from '@/api/trust';
+import type { User } from '@/types';
 import type { ProfileStackParamList } from '@/navigation/types';
 
 type Props = StackScreenProps<ProfileStackParamList, 'Profile'>;
@@ -33,13 +37,46 @@ type ProfileTab = 'hosted' | 'joined' | 'recaps';
 export function ProfileScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const toast = useToast();
-  const me = getUserById(CURRENT_USER_ID)!;
   const [tab, setTab] = useState<ProfileTab>('hosted');
 
-  const hosted = plans.filter((p) => p.hostId === me.id);
-  const joined  = plans.filter((p) => p.joinerIds.includes(me.id));
-  const myRecaps = recaps.filter((r) => r.authorId === me.id);
-  const familiarFaces = me.familiarFaceIds.map((id) => users.find((u) => u.id === id)).filter(Boolean) as typeof users;
+  // Real identity + Trust data (Wave 4): profile/score, endorsement summary,
+  // familiar faces. Plan-history tabs + follow counts remain mock pending the
+  // Social wave (no plan-history / follows read RPCs yet).
+  const [me, setMe] = useState<User | null>(null);
+  const [endorsements, setEndorsements] = useState<EndorsementCount[]>([]);
+  const [familiarFaces, setFamiliarFaces] = useState<FamiliarFace[]>([]);
+
+  const load = useCallback(async () => {
+    try {
+      const profile = await getMyProfile();
+      setMe(profile);
+      if (profile) {
+        const [es, ff] = await Promise.all([
+          getEndorsementSummary(profile.id),
+          getFamiliarFaces(),
+        ]);
+        setEndorsements(es);
+        setFamiliarFaces(ff);
+      }
+    } catch { /* keep prior data on transient failure */ }
+  }, []);
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
+
+  // Plan-history tabs are still mock (Social/history wave — no history RPC).
+  const mockMe = getUserById(CURRENT_USER_ID)!;
+  const hosted = plans.filter((p) => p.hostId === mockMe.id);
+  const joined  = plans.filter((p) => p.joinerIds.includes(mockMe.id));
+  const myRecaps = recaps.filter((r) => r.authorId === mockMe.id);
+
+  if (!me) {
+    return (
+      <Screen scroll={false}>
+        <Stack style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.coral} />
+        </Stack>
+      </Screen>
+    );
+  }
 
   const header = (
     <ScreenPad>
@@ -107,21 +144,21 @@ export function ProfileScreen({ navigation }: Props) {
             >
               {familiarFaces.map((face) => (
                 <FamiliarFaceItem
-                  key={face.id}
-                  uri={face.avatarUri}
-                  name={face.name}
-                  onPress={() => navigation.navigate('ProfileOther', { userId: face.id })}
+                  key={face.user.id}
+                  uri={face.user.avatarUri}
+                  name={face.user.name}
+                  onPress={() => navigation.navigate('ProfileOther', { userId: face.user.id })}
                 />
               ))}
             </GestureScrollView>
           </View>
         ) : null}
 
-        {me.endorsements.length > 0 ? (
+        {endorsements.length > 0 ? (
           <SectionBlock>
             <T.CapsSm style={{ marginBottom: spacing.sm + 2 }}>Endorsements</T.CapsSm>
             <Row wrap gap="sm">
-              {me.endorsements.map((e) => (
+              {endorsements.map((e) => (
                 <View
                   key={e.label}
                   style={{ paddingVertical: 5, paddingHorizontal: 11, borderRadius: radii.full, borderWidth: borderWidths.medium, backgroundColor: colors.cost.freeBg, borderColor: colors.cost.freeBorder }}

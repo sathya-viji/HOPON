@@ -21,7 +21,16 @@ export function planDetailRoute(
 ): 'Plan' | 'PlanHost' | 'PlanEnded' | 'PlanExpired' {
   if (plan.status === 'ended') return 'PlanEnded';
   if (plan.status === 'expired') return 'PlanExpired';
+  // Auto lifecycle-end ~1h after start (no manual end / cron yet).
+  if (isWrappedUp(plan)) return 'PlanEnded';
   return ownHostView ? 'PlanHost' : 'Plan';
+}
+
+/** A plan auto-enters its Trust lifecycle ~1h after it starts (there is no
+ *  manual "end" — the host's first attendance submission lazily ends it). */
+const WRAP_UP_MS = 60 * 60 * 1000;
+export function isWrappedUp(plan: Plan): boolean {
+  return Date.now() >= new Date(plan.startsAt).getTime() + WRAP_UP_MS;
 }
 
 export function deriveUrgency(mins: number): UrgencyTier {

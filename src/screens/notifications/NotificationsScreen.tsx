@@ -43,7 +43,7 @@ const ROUTE_FOR_TYPE: Record<NotifType, keyof HomeStackParamList | null> = {
   plan_cancelled: 'Plan',
   plan_starting_soon_joiner: 'Plan',
   plan_starting_15: 'Plan',
-  plan_ended_joiner: 'Plan',
+  plan_ended_joiner: 'Endorse',
   marked_noshow: 'Plan',
   mention: 'Chat',
   endorsement_received: null,
