@@ -16,19 +16,63 @@ interface NotifRowProps {
   onPostRecap?: (planId: string) => void;
 }
 
+// Each of the backend's 41 notif types → an existing icon + one of the five
+// colour buckets the resolver below understands. Copy itself is server-rendered
+// (notif.body); this only drives the avatar-corner badge icon.
 const TYPE_ICON: Record<NotifType, { icon: IconName; color: string }> = {
+  // plan (host)
+  plan_posted: { icon: 'calendar-plus', color: 'textSub' },
   new_joiner: { icon: 'circle-check', color: 'green' },
   join_request: { icon: 'user-plus', color: 'coral' },
+  joiner_left: { icon: 'x', color: 'textSub' },
+  plan_full: { icon: 'users', color: 'green' },
+  plan_starting_soon_host: { icon: 'clock', color: 'amber' },
+  plan_started_host: { icon: 'zap', color: 'amber' },
+  plan_ended_host: { icon: 'zap', color: 'amber' },
+  endorse_reminder: { icon: 'badge-check', color: 'amber' },
+  recap_reminder: { icon: 'image', color: 'textSub' },
+  plan_cancelled_confirm: { icon: 'x-circle', color: 'textSub' },
+  host_marked_absent: { icon: 'alert-triangle', color: 'sponsoredFg' },
+  new_recap_on_your_plan: { icon: 'image', color: 'textSub' },
+  // plan (joiner)
   request_approved: { icon: 'badge-check', color: 'green' },
   request_declined: { icon: 'x', color: 'sponsoredFg' },
-  plan_ended: { icon: 'zap', color: 'amber' },
-  new_recap: { icon: 'image', color: 'textSub' },
+  plan_updated: { icon: 'pencil', color: 'amber' },
+  plan_cancelled: { icon: 'x-circle', color: 'sponsoredFg' },
+  plan_starting_soon_joiner: { icon: 'clock', color: 'amber' },
+  plan_starting_15: { icon: 'clock', color: 'amber' },
+  plan_ended_joiner: { icon: 'zap', color: 'amber' },
+  marked_noshow: { icon: 'alert-triangle', color: 'sponsoredFg' },
+  // chat
+  mention: { icon: 'message-circle', color: 'coral' },
+  // trust
+  endorsement_received: { icon: 'badge-check', color: 'green' },
+  attendance_score_improved: { icon: 'zap', color: 'green' },
+  attendance_score_dropped: { icon: 'zap', color: 'sponsoredFg' },
+  new_familiar_face: { icon: 'users', color: 'textSub' },
+  // recaps & stories
+  recap_liked: { icon: 'heart', color: 'coral' },
+  recap_commented: { icon: 'message-circle', color: 'textSub' },
+  recap_comment_replied: { icon: 'message-circle', color: 'textSub' },
+  new_recap_from_following: { icon: 'image', color: 'textSub' },
+  story_expiring_soon: { icon: 'clock', color: 'amber' },
+  // social
   new_follower: { icon: 'user', color: 'textSub' },
+  follow_request: { icon: 'user-plus', color: 'coral' },
+  follow_accepted: { icon: 'user-check', color: 'green' },
+  following_posted_plan: { icon: 'calendar-plus', color: 'textSub' },
+  // system
+  welcome: { icon: 'sparkles', color: 'coral' },
+  profile_incomplete: { icon: 'info', color: 'textSub' },
+  first_plan_nudge: { icon: 'sparkles', color: 'amber' },
+  contact_joined: { icon: 'user-plus', color: 'textSub' },
+  plan_expired_host: { icon: 'clock', color: 'textSub' },
+  plan_expired_joiner: { icon: 'clock', color: 'textSub' },
 };
 
 export function NotifRow({ notif, onPress, onApprove, onDecline, onPostRecap }: NotifRowProps) {
   const { colors } = useTheme();
-  const config = TYPE_ICON[notif.type];
+  const config = TYPE_ICON[notif.type] ?? { icon: 'bell' as IconName, color: 'textSub' };
   const iconColor =
     config.color === 'green'
       ? colors.green
@@ -114,7 +158,7 @@ export function NotifRow({ notif, onPress, onApprove, onDecline, onPostRecap }: 
           </View>
         ) : null}
 
-        {notif.type === 'plan_ended' && !notif.isRead && onPostRecap && notif.planId ? (
+        {notif.type === 'plan_ended_host' && !notif.isRead && onPostRecap && notif.planId ? (
           <View style={{ marginTop: 8 }}>
             <Pressable
               onPress={() => onPostRecap(notif.planId!)}

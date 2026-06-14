@@ -25,6 +25,8 @@ export type ApiErrorCode =
   | 'starts_too_far'
   | 'chat_closed'
   | 'chat_archived'
+  | 'empty_message'
+  | 'message_not_found'
   | 'endorsement_window_closed'
   | 'giver_not_present'
   | 'receiver_not_present'
@@ -61,6 +63,8 @@ const MESSAGES: Record<ApiErrorCode, string> = {
   starts_too_far: 'Plans can be at most 14 days ahead.',
   chat_closed: 'This chat is closed.',
   chat_archived: 'This chat is archived.',
+  empty_message: 'Type a message first.',
+  message_not_found: 'That message is no longer available.',
   endorsement_window_closed: 'The endorsement window has closed.',
   giver_not_present: 'Only attendees who showed up can endorse.',
   receiver_not_present: 'You can only endorse attendees who showed up.',

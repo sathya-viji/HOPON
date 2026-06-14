@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, FlatList, TextInput as RNTextInput } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { View, FlatList, TextInput as RNTextInput, ActivityIndicator } from 'react-native';
 import { Pressable } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import { Screen } from '@/components/layout/Screen';
@@ -11,44 +11,118 @@ import { Avatar } from '@/components/atoms/Avatar';
 import { Icon } from '@/components/atoms/Icon';
 import { Countdown } from '@/components/atoms/Countdown';
 import { CostTag } from '@/components/atoms/CostTag';
+import { EmptyState } from '@/components/atoms/EmptyState';
 import * as T from '@/components/atoms/T';
 import { useTheme } from '@/theme';
 import { spacing, radii, borderWidths, iconSizes, fontFamilies, CATEGORIES } from '@/theme/tokens';
-import { plans, getPlanById, getUserById, CURRENT_USER_ID } from '@/mocks';
+import { supabase } from '@/api/client';
+import { usePlanDetail } from '@/api/hooks/usePlanDetail';
+import { getMessages, sendMessage, type ChatMessageRaw } from '@/api/chat';
+import { subscribeToPlanMessages } from '@/api/realtime';
+import { errorMessage } from '@/api/errors';
+import { useToast } from '@/hooks/useToast';
 import type { HomeStackParamList } from '@/navigation/types';
 import { Message } from '@/types';
 
 type Props = StackScreenProps<HomeStackParamList, 'Chat'>;
 
-const minsAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
-
 export function ChatScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
-  const plan = getPlanById(route.params?.planId) ?? plans[1];
-  const cat = CATEGORIES.find((c) => c.id === plan.categoryId)!;
+  const toast = useToast();
+  const planId = route.params?.planId;
+  const { detail, loading: planLoading, error } = usePlanDetail(planId);
 
-  const seed: Message[] = plan.joinerIds.slice(0, 3).map((id, i) => {
-    const u = getUserById(id)!;
-    return {
-      id: `m${i}`,
-      planId: plan.id,
-      authorId: u.id,
-      authorName: u.name,
-      authorAvatarUri: u.avatarUri,
-      isHost: false,
-      body: ['On my way!', 'Same — see you there.', 'Wear something warm.'][i] ?? 'Hi',
-      createdAt: minsAgo(30 - i * 5),
-    };
-  });
-
-  const [messages, setMessages] = useState<Message[]>(seed);
+  const [myUid, setMyUid] = useState<string | null>(null);
+  const [raw, setRaw] = useState<ChatMessageRaw[]>([]);
+  const [loadingMsgs, setLoadingMsgs] = useState(true);
   const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+  const listRef = useRef<FlatList>(null);
 
-  const send = () => {
-    if (!draft.trim()) return;
-    setMessages((m) => [...m, { id: `m-${Date.now()}`, planId: plan.id, authorId: CURRENT_USER_ID, authorName: 'You', isHost: plan.hostId === CURRENT_USER_ID, body: draft.trim(), createdAt: new Date().toISOString() }]);
-    setDraft('');
-  };
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setMyUid(data.session?.user.id ?? null));
+  }, []);
+
+  // History + live inserts. Dedupe by id (the send() echo and the realtime
+  // broadcast can both deliver the same row).
+  useEffect(() => {
+    if (!planId) return;
+    let cancelled = false;
+    setLoadingMsgs(true);
+    getMessages(planId)
+      .then((rows) => { if (!cancelled) setRaw(rows); })
+      .catch(() => { /* offline — keep empty; user can retry by reopening */ })
+      .finally(() => { if (!cancelled) setLoadingMsgs(false); });
+    const unsub = subscribeToPlanMessages(planId, (m) =>
+      setRaw((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m])),
+    );
+    return () => { cancelled = true; unsub(); };
+  }, [planId]);
+
+  // Resolve author identity from the plan detail the screen already loads
+  // (host + joiners). Recomputed when detail arrives so names fill in.
+  const hostId = detail?.plan.hostId;
+  const host = detail?.host;
+  const joiners = detail?.joiners;
+  const messages: Message[] = useMemo(
+    () =>
+      raw.map((m) => {
+        const isHost = !!hostId && m.authorId === hostId;
+        const j = joiners?.find((x) => x.id === m.authorId);
+        return {
+          id: m.id,
+          planId: m.planId,
+          authorId: m.authorId,
+          authorName: isHost ? host?.name ?? 'Host' : j?.name ?? 'Member',
+          authorAvatarUri: isHost ? host?.avatarUri : j?.avatarUri,
+          isHost,
+          body: m.isDeleted ? '[deleted]' : m.body,
+          createdAt: m.createdAt,
+        };
+      }),
+    [raw, hostId, host, joiners],
+  );
+
+  const send = useCallback(async () => {
+    const body = draft.trim();
+    if (!body || sending || !planId) return;
+    setSending(true);
+    try {
+      const msg = await sendMessage(planId, body);
+      setRaw((prev) => (prev.some((x) => x.id === msg.id) ? prev : [...prev, msg]));
+      setDraft('');
+    } catch (e) {
+      toast.show(errorMessage(e, 'Couldn’t send. Check your connection.'));
+    } finally {
+      setSending(false);
+    }
+  }, [draft, sending, planId, toast]);
+
+  if (planLoading && !detail) {
+    return (
+      <Screen scroll={false}>
+        <Stack style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.coral} />
+        </Stack>
+      </Screen>
+    );
+  }
+  if (!detail) {
+    return (
+      <Screen
+        header={
+          <ScreenPad><Row style={{ paddingVertical: spacing.sm }}><Button variant="back" onPress={() => navigation.goBack()} /></Row></ScreenPad>
+        }
+        scroll={false}
+      >
+        <EmptyState emoji="💬" title="Chat unavailable" sub={error ? 'Check your connection and try again.' : 'This plan is no longer available.'} />
+      </Screen>
+    );
+  }
+
+  const plan = detail.plan;
+  const cat = CATEGORIES.find((c) => c.id === plan.categoryId) ?? CATEGORIES[CATEGORIES.length - 1];
+  const peopleCount = Math.max(0, plan.capacity - plan.spotsRemaining);
 
   const header = (
     <ScreenPad style={{ borderBottomWidth: borderWidths.thin, borderBottomColor: colors.border }}>
@@ -59,7 +133,7 @@ export function ChatScreen({ navigation, route }: Props) {
         </Stack>
         <Stack style={{ flex: 1, minWidth: 0 }}>
           <T.LabelMd numberOfLines={1}>{plan.activity}</T.LabelMd>
-          <T.MetaXs numberOfLines={1}>{plan.location.split(',')[0]} · {plan.capacity - plan.spotsRemaining} people</T.MetaXs>
+          <T.MetaXs numberOfLines={1}>{plan.location.split(',')[0]} · {peopleCount} people</T.MetaXs>
         </Stack>
         <Pressable onPress={() => navigation.navigate('Plan', { planId: plan.id })} hitSlop={spacing.sm}>
           <Icon name="info" size={iconSizes.md} color={colors.textDim} />
@@ -88,9 +162,10 @@ export function ChatScreen({ navigation, route }: Props) {
           placeholder="Message the group…"
           placeholderTextColor={colors.textDim}
           onSubmitEditing={send}
+          returnKeyType="send"
         />
       </Row>
-      <Pressable onPress={send} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ctaBg }}>
+      <Pressable onPress={send} disabled={sending} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ctaBg }}>
         <Icon name="send" size={iconSizes.sm} color={colors.ctaFg} />
       </Pressable>
     </Row>
@@ -100,11 +175,24 @@ export function ChatScreen({ navigation, route }: Props) {
     <Screen header={header} footer={footer} scroll={false}>
       {planStrip}
       <FlatList
+        ref={listRef}
         data={messages}
         keyExtractor={(m) => m.id}
         contentContainerStyle={{ padding: spacing.screenPx, gap: 6 }}
+        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+        ListEmptyComponent={
+          loadingMsgs ? (
+            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+              <ActivityIndicator color={colors.coral} />
+            </View>
+          ) : (
+            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+              <T.BodyMd color={colors.textSub}>No messages yet — say hi 👋</T.BodyMd>
+            </View>
+          )
+        }
         renderItem={({ item }) => {
-          const mine = item.authorId === CURRENT_USER_ID;
+          const mine = item.authorId === myUid;
           return (
             <Row gap="sm" align="flex-end" style={{ flexDirection: mine ? 'row-reverse' : 'row', marginBottom: spacing.sm }}>
               {!mine ? <Avatar uri={item.authorAvatarUri} name={item.authorName} size={28} shape="circle" /> : null}

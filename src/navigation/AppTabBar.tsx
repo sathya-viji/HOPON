@@ -3,6 +3,7 @@ import { useNavigationState } from '@react-navigation/native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { NavBar } from '@/components/organisms/NavBar';
 import type { NavTab } from '@/components/organisms/NavBar';
+import { useSession } from '@/state/SessionContext';
 
 const HIDDEN_SCREENS = new Set(['Create', 'StoryViewer', 'CreateStory', 'RecapPost']);
 
@@ -15,6 +16,7 @@ function getDeepestRouteName(state: any): string {
 
 export function AppTabBar({ state, navigation }: BottomTabBarProps) {
   const activeScreenName = useNavigationState(getDeepestRouteName);
+  const { unreadCount } = useSession();
 
   if (HIDDEN_SCREENS.has(activeScreenName)) return null;
 
@@ -27,6 +29,7 @@ export function AppTabBar({ state, navigation }: BottomTabBarProps) {
   return (
     <NavBar
       active={activeTab}
+      badges={{ notifications: unreadCount }}
       onHomePress={() => {
         if (tabName === 'HomeTab') {
           // already on HomeTab — pop all the way back to the root Home screen

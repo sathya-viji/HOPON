@@ -156,6 +156,10 @@ correctly sees "Request to join".
 - **Device-verified end-to-end:** PlanHost now shows "ATTENDEES · 1" (Meera Iyer) + a
   "3 pending requests" banner; PlanRequests lists all 3 (Ravi/Anita/Vikram); **approving
   Ravi moved him to ATTENDEES (→2) and dropped pending to 2** on refetch.
+- **Re-verified post-checkpoint (2026-06-14, fresh `db reset`):** attendees visible,
+  pending visible, **approve** (Ravi→attendees) AND **decline** (Anita removed) both work;
+  requester state propagates in UI (ATTENDEES·2, 1 pending) and DB (Meera=joined,
+  Ravi=approved, Anita=declined, Vikram=requested). Gate for Wave 3 — PASS.
 
 ### Network-error copy (optional, Low) — FIXED
 - `PlanScreen` error state now keys on `errorCode`: a genuine `plan_not_found`/`blocked`

@@ -42,7 +42,7 @@ export const notifications: Notification[] = [
   },
   {
     id: 'n3',
-    type: 'plan_ended',
+    type: 'plan_ended_host',
     isRead: true,
     createdAt: agoIso(140),
     planId: 'p8',
@@ -51,7 +51,7 @@ export const notifications: Notification[] = [
   },
   {
     id: 'n4',
-    type: 'new_recap',
+    type: 'new_recap_on_your_plan',
     isRead: true,
     createdAt: agoIso(220),
     planId: 'p2',
