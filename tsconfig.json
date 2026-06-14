@@ -1,6 +1,12 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true
-  }
+    "strict": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "ignoreDeprecations": "6.0"
+  },
+  "include": ["**/*.ts", "**/*.tsx", "App.tsx", "index.ts"],
+  "exclude": ["node_modules", "supabase/functions"]
 }

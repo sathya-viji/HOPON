@@ -1,0 +1,6 @@
+# Supabase local artifacts — never commit
+.branches
+.temp
+.env
+.env.*
+!/.env.example

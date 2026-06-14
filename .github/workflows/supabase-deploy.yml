@@ -1,0 +1,74 @@
+# ============================================================================
+# HopOn — Supabase CI/CD
+# Frozen strategy (execution doc Part 8 / Phase 0):
+#   * PRs:           validate migrations against a clean local stack
+#   * merge to main: deploy migrations, then Edge Functions, to production
+# Required repository secrets:
+#   SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF, SUPABASE_DB_PASSWORD
+# ============================================================================
+name: supabase
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/**'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+
+concurrency:
+  group: supabase-${{ github.ref }}
+  cancel-in-progress: false   # never cancel a half-finished production deploy
+
+jobs:
+  # ── PR validation: every migration must apply cleanly from zero ──────────
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local stack and apply all migrations + seed
+        run: supabase db start
+
+      - name: Lint database (Supabase advisor checks)
+        run: supabase db lint --level warning
+
+      - name: Verify no migration drift
+        run: supabase db diff --schema public --use-migra | tee /tmp/drift.txt &&
+             test ! -s /tmp/drift.txt ||
+             (echo '::error::Schema drift detected — migrations do not match declared schema' && exit 1)
+
+  # ── Production deploy: migrations first, functions second ────────────────
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production    # gate behind a GitHub environment for approvals
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project
+        run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+
+      - name: Push migrations
+        run: supabase db push
+
+      - name: Deploy Edge Functions
+        run: |
+          if [ -n "$(find supabase/functions -mindepth 1 -maxdepth 1 -type d ! -name '_shared')" ]; then
+            supabase functions deploy --no-verify-jwt=false
+          else
+            echo "No Edge Functions to deploy yet (Phase 0)."
+          fi
