@@ -15,9 +15,9 @@ import { EndorsementTag } from '@/components/molecules/EndorsementTag';
 import * as T from '@/components/atoms/T';
 import { useTheme } from '@/theme';
 import { spacing, radii, borderWidths, iconSizes, CATEGORIES } from '@/theme/tokens';
+import { supabase } from '@/api/client';
 import { usePlanDetail } from '@/api/hooks/usePlanDetail';
-import { getPlanMembers } from '@/api/plans';
-import { endPlan, submitEndorsements, getPlanAttendees, voteHostNoshow, type EndorseMark } from '@/api/trust';
+import { endPlan, submitEndorsements, getPlanAttendees, type EndorseMark } from '@/api/trust';
 import { errorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import type { HomeStackParamList } from '@/navigation/types';
@@ -25,8 +25,7 @@ import type { HomeStackParamList } from '@/navigation/types';
 type Props = StackScreenProps<HomeStackParamList, 'Endorse'>;
 
 const TAGS = ['Punctual', 'Easy to talk to', 'Good energy', 'Would join again', 'Great company', 'Reliable'];
-type Status = 'present' | 'noshow' | undefined;
-interface Person { id: string; name: string; avatarUri?: string }
+interface Person { id: string; name: string; avatarUri?: string; isHost: boolean }
 
 export function EndorseScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
@@ -34,84 +33,67 @@ export function EndorseScreen({ navigation, route }: Props) {
   const planId = route.params?.planId;
   const { detail, loading } = usePlanDetail(planId);
 
-  const isHost = !!detail?.viewerIsHost;
-  const planEnded = detail?.plan.status === 'ended';
-
+  const [myUid, setMyUid] = useState<string | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
   const [loadingPeople, setLoadingPeople] = useState(true);
-  const [marks, setMarks] = useState<Record<string, Status>>({}); // host attendance
-  const [tag, setTag] = useState<Record<string, string | undefined>>({}); // one tag per person
+  const [waiting, setWaiting] = useState(false);          // peer, plan not wrapped up yet
+  const [noShow, setNoShow] = useState<Record<string, boolean>>({}); // default present; flag exceptions
+  const [tag, setTag] = useState<Record<string, string | undefined>>({});
   const [busy, setBusy] = useState(false);
 
-  // Attendee list: host reads the full member list (host-only RPC); a peer uses
-  // the joiners embedded in plan detail (best-effort — see Wave 4 report note).
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setMyUid(data.session?.user.id ?? null));
+  }, []);
+
+  // Trust v2: everyone marks everyone (host + members + self). A plan auto-ends
+  // ~1h after start (cron); if it hasn't yet, the host can lazily end it, but a
+  // peer must wait until it's wrapped up.
   useEffect(() => {
     if (!detail || !planId) return;
     let cancelled = false;
-    setLoadingPeople(true);
-    const loadPeople = async (): Promise<Person[]> => {
-      if (detail.viewerIsHost) {
-        const members = await getPlanMembers(planId);
-        return members
-          .filter((m) => m.status === 'joined' || m.status === 'approved' || m.status === 'attended' || m.status === 'noshow')
-          .map((m) => ({ id: m.id, name: m.name, avatarUri: m.avatarUri }));
+    setLoadingPeople(true); setWaiting(false);
+    (async () => {
+      try {
+        if (detail.plan.status !== 'ended') {
+          if (detail.viewerIsHost) {
+            try { await endPlan(planId); } catch { /* already ended / race — ignore */ }
+          } else {
+            if (!cancelled) { setWaiting(true); }
+            return;
+          }
+        }
+        const list = await getPlanAttendees(planId);
+        if (!cancelled) setPeople(list);
+      } catch {
+        if (!cancelled) setPeople([]);
+      } finally {
+        if (!cancelled) setLoadingPeople(false);
       }
-      // Peer: co-attendees come from get_plan_attendees (ended plans only).
-      if (detail.plan.status !== 'ended') return [];
-      const attendees = await getPlanAttendees(planId);
-      return attendees.map((a) => ({ id: a.id, name: a.name, avatarUri: a.avatarUri }));
-    };
-    loadPeople()
-      .then((p) => { if (!cancelled) setPeople(p); })
-      .catch(() => { if (!cancelled) setPeople([]); })
-      .finally(() => { if (!cancelled) setLoadingPeople(false); });
+    })();
     return () => { cancelled = true; };
   }, [detail, planId]);
 
-  const setStatus = (id: string, s: Status) => setMarks((prev) => ({ ...prev, [id]: prev[id] === s ? undefined : s }));
-  // single-select: one endorsement tag per person (endorsements are unique per giver+receiver)
-  const toggleTag = (id: string, t: string) =>
-    setTag((prev) => ({ ...prev, [id]: prev[id] === t ? undefined : t }));
-
-  const allMarked = isHost && people.length > 0 && people.every((p) => marks[p.id] !== undefined);
-  const anyTag = people.some((p) => tag[p.id]);
+  const toggleNoShow = (id: string) => setNoShow((p) => ({ ...p, [id]: !p[id] }));
+  const toggleTag = (id: string, t: string) => setTag((p) => ({ ...p, [id]: p[id] === t ? undefined : t }));
+  const selfNoShow = !!(myUid && noShow[myUid]);
 
   const submit = useCallback(async () => {
     if (busy || !planId) return;
     setBusy(true);
     try {
-      if (isHost) {
-        // Lazy lifecycle-end: the first host attendance submission ends the plan.
-        if (!planEnded) await endPlan(planId);
-        const payload: EndorseMark[] = people.map((p) => ({
-          subject_id: p.id,
-          result: marks[p.id],
-          ...(tag[p.id] ? { tag: tag[p.id] } : {}),
-        }));
-        await submitEndorsements(planId, payload);
-      } else {
-        const payload: EndorseMark[] = people
-          .filter((p) => tag[p.id])
-          .map((p) => ({ subject_id: p.id, tag: tag[p.id] }));
-        await submitEndorsements(planId, payload);
-      }
-      toast.show('Endorsements submitted');
+      const marks: EndorseMark[] = people.map((p) => {
+        const present = !noShow[p.id];
+        const giveTag = present && p.id !== myUid && !selfNoShow && tag[p.id];
+        return { subject_id: p.id, result: present ? 'present' : 'noshow', ...(giveTag ? { tag: tag[p.id] } : {}) };
+      });
+      await submitEndorsements(planId, marks);
+      toast.show('Thanks — attendance submitted');
       navigation.popToTop();
     } catch (e) {
       toast.show(errorMessage(e, 'Couldn’t submit. Try again.'));
       setBusy(false);
     }
-  }, [busy, planId, isHost, planEnded, people, marks, tag, toast, navigation]);
-
-  const reportHostNoshow = useCallback(async () => {
-    if (!planId) return;
-    try {
-      await voteHostNoshow(planId);
-      toast.show('Thanks — noted. The host is marked absent if enough attendees agree.');
-    } catch (e) {
-      toast.show(errorMessage(e, 'Couldn’t submit that report.'));
-    }
-  }, [planId, toast]);
+  }, [busy, planId, people, noShow, tag, myUid, selfNoShow, toast, navigation]);
 
   const cat = detail
     ? CATEGORIES.find((c) => c.id === detail.plan.categoryId) ?? CATEGORIES[CATEGORIES.length - 1]
@@ -121,13 +103,12 @@ export function EndorseScreen({ navigation, route }: Props) {
     <ScreenPad>
       <Row gap="md" style={{ paddingTop: spacing.sm, paddingBottom: spacing.sm }}>
         <Button variant="back" onPress={() => navigation.goBack()} />
-        <T.LabelLg>{isHost ? 'Attendance & endorsements' : 'Endorse your crew'}</T.LabelLg>
+        <T.LabelLg>Attendance & endorsements</T.LabelLg>
       </Row>
     </ScreenPad>
   );
 
-  // ── Loading ──────────────────────────────────────────────────────────────
-  if ((loading && !detail) || (detail && loadingPeople)) {
+  if ((loading && !detail) || (detail && loadingPeople && !waiting)) {
     return (
       <Screen header={header} scroll={false}>
         <Stack style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -143,42 +124,24 @@ export function EndorseScreen({ navigation, route }: Props) {
       </Screen>
     );
   }
-
-  const plan = detail.plan;
-
-  // ── Peer, but the host hasn't wrapped up yet ───────────────────────────────
-  if (!isHost && !planEnded) {
+  if (waiting) {
     return (
       <Screen header={header} scroll={false}>
-        <EmptyState
-          emoji="⏳"
-          title="Not quite yet"
-          sub="The host is still wrapping up. You’ll be able to endorse once attendance is confirmed."
-        />
+        <EmptyState emoji="⏳" title="Not quite yet" sub="This plan is still wrapping up. Check back shortly to mark attendance and endorse your crew." />
       </Screen>
     );
   }
 
+  const plan = detail.plan;
+
   const footer = (
     <ScreenPad style={{ paddingVertical: spacing.md, paddingBottom: spacing.xxxl, borderTopWidth: borderWidths.thin, borderTopColor: colors.border, backgroundColor: colors.bg }}>
-      <Button
-        variant="primary-coral"
-        label={
-          busy
-            ? 'Submitting…'
-            : isHost
-              ? (allMarked ? 'Done — submit' : `Mark all ${people.length} attendees to continue`)
-              : 'Submit endorsements'
-        }
-        onPress={submit}
-        disabled={busy || (isHost ? !allMarked : !anyTag)}
-      />
+      <Button variant="primary-coral" label={busy ? 'Submitting…' : 'Submit attendance'} onPress={submit} disabled={busy || people.length === 0} />
     </ScreenPad>
   );
 
   return (
     <Screen header={header} footer={footer} scroll={false}>
-      {/* Context strip */}
       <Row gap="sm" style={{ paddingHorizontal: spacing.screenPx, paddingVertical: spacing.sm + 2, borderBottomWidth: borderWidths.thin, borderBottomColor: colors.border, backgroundColor: colors.surface }}>
         <Stack style={{ width: 32, height: 32, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: cat.bg }}>
           <Icon name={cat.icon as never} size={iconSizes.sm} color={cat.iconColor} strokeWidth={2} />
@@ -192,68 +155,65 @@ export function EndorseScreen({ navigation, route }: Props) {
 
       <ScreenPad style={{ paddingTop: spacing.md, paddingBottom: spacing.sm }}>
         <T.Meta color={colors.textSub}>
-          {isHost
-            ? 'Mark who showed up — this updates their attendance score. Endorsement tags are optional.'
-            : 'Add an endorsement for the people you met. One tag each.'}
+          Everyone's marked here — tap “No-show” for anyone who didn't make it (including yourself). Endorsement tags are optional.
         </T.Meta>
+        {selfNoShow ? (
+          <T.MetaXs color={colors.cost.sponsoredFg} style={{ marginTop: spacing.xs }}>
+            You marked yourself absent — endorsements are only available to attendees.
+          </T.MetaXs>
+        ) : null}
       </ScreenPad>
 
       {people.length === 0 ? (
-        <EmptyState emoji="👥" title="No one to endorse" sub="This plan had no other attendees." />
+        <EmptyState emoji="👥" title="No one to review" sub="This plan had no participants to mark." />
       ) : (
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
           {people.map((a) => {
-            const status = marks[a.id];
-            const showed = status === 'present';
-            const noShow = status === 'noshow';
-            const showTags = !isHost || showed; // peer always tags; host tags only present people
-
+            const isSelf = a.id === myUid;
+            const present = !noShow[a.id];
+            const showTags = present && !isSelf && !selfNoShow;
             return (
               <Stack key={a.id} gap="sm" style={{ paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.screenPx, borderBottomWidth: borderWidths.thin, borderBottomColor: colors.border }}>
                 <Row gap="md" style={{ marginBottom: spacing.xs }}>
-                  <Stack style={noShow ? { opacity: 0.5 } : undefined}>
+                  <Stack style={!present ? { opacity: 0.5 } : undefined}>
                     <Avatar uri={a.avatarUri} name={a.name} size={44} shape="circle" />
                   </Stack>
                   <Stack style={{ flex: 1 }}>
-                    <T.LabelMd color={noShow ? colors.textDim : colors.text}>{a.name}</T.LabelMd>
-                    {isHost ? (
-                      <Row gap={4} style={{ marginTop: 2 }}>
-                        {showed ? (
-                          <>
-                            <Icon name="circle-check" size={iconSizes.xxs + 1} color={colors.green} />
-                            <T.MetaXs color={colors.green}>Marked present</T.MetaXs>
-                          </>
-                        ) : noShow ? (
-                          <>
-                            <Icon name="x-circle" size={iconSizes.xxs + 1} color={colors.cost.sponsoredFg} />
-                            <T.MetaXs color={colors.cost.sponsoredFg}>No-show</T.MetaXs>
-                          </>
-                        ) : (
-                          <T.MetaXs color={colors.textDim}>Not marked yet</T.MetaXs>
-                        )}
-                      </Row>
-                    ) : null}
+                    <T.LabelMd color={!present ? colors.textDim : colors.text}>
+                      {a.name}{a.isHost ? ' · Host' : ''}{isSelf ? ' · You' : ''}
+                    </T.LabelMd>
+                    <Row gap={4} style={{ marginTop: 2 }}>
+                      {present ? (
+                        <>
+                          <Icon name="circle-check" size={iconSizes.xxs + 1} color={colors.green} />
+                          <T.MetaXs color={colors.green}>Showed up</T.MetaXs>
+                        </>
+                      ) : (
+                        <>
+                          <Icon name="x-circle" size={iconSizes.xxs + 1} color={colors.cost.sponsoredFg} />
+                          <T.MetaXs color={colors.cost.sponsoredFg}>No-show</T.MetaXs>
+                        </>
+                      )}
+                    </Row>
                   </Stack>
                 </Row>
 
-                {isHost ? (
-                  <Row gap="sm" style={{ marginBottom: showed ? spacing.sm : 0 }}>
-                    <Pressable
-                      onPress={() => setStatus(a.id, 'present')}
-                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: 9, borderRadius: radii.sm, borderWidth: borderWidths.medium, borderColor: showed ? colors.green : colors.border, backgroundColor: showed ? colors.cost.freeBg : colors.surface }}
-                    >
-                      <Icon name="check" size={iconSizes.xxs + 3} color={showed ? colors.green : colors.textSub} strokeWidth={2.5} />
-                      <T.LabelXs color={showed ? colors.green : colors.textSub}>Showed up</T.LabelXs>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setStatus(a.id, 'noshow')}
-                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: 9, borderRadius: radii.sm, borderWidth: borderWidths.medium, borderColor: noShow ? colors.cost.sponsoredFg : colors.border, backgroundColor: noShow ? colors.cost.sponsoredBg : colors.surface }}
-                    >
-                      <Icon name="x" size={iconSizes.xxs + 3} color={noShow ? colors.cost.sponsoredFg : colors.textSub} strokeWidth={2.5} />
-                      <T.LabelXs color={noShow ? colors.cost.sponsoredFg : colors.textSub}>No-show</T.LabelXs>
-                    </Pressable>
-                  </Row>
-                ) : null}
+                <Row gap="sm" style={{ marginBottom: showTags ? spacing.sm : 0 }}>
+                  <Pressable
+                    onPress={() => { if (!present) toggleNoShow(a.id); }}
+                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: 9, borderRadius: radii.sm, borderWidth: borderWidths.medium, borderColor: present ? colors.green : colors.border, backgroundColor: present ? colors.cost.freeBg : colors.surface }}
+                  >
+                    <Icon name="check" size={iconSizes.xxs + 3} color={present ? colors.green : colors.textSub} strokeWidth={2.5} />
+                    <T.LabelXs color={present ? colors.green : colors.textSub}>Showed up</T.LabelXs>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => { if (present) toggleNoShow(a.id); }}
+                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: 9, borderRadius: radii.sm, borderWidth: borderWidths.medium, borderColor: !present ? colors.cost.sponsoredFg : colors.border, backgroundColor: !present ? colors.cost.sponsoredBg : colors.surface }}
+                  >
+                    <Icon name="x" size={iconSizes.xxs + 3} color={!present ? colors.cost.sponsoredFg : colors.textSub} strokeWidth={2.5} />
+                    <T.LabelXs color={!present ? colors.cost.sponsoredFg : colors.textSub}>No-show</T.LabelXs>
+                  </Pressable>
+                </Row>
 
                 {showTags ? (
                   <Row gap="sm" wrap>
@@ -265,11 +225,6 @@ export function EndorseScreen({ navigation, route }: Props) {
               </Stack>
             );
           })}
-          {!isHost ? (
-            <Pressable onPress={reportHostNoshow} style={{ paddingVertical: spacing.lg, alignItems: 'center' }}>
-              <T.Meta color={colors.textSub}>Host didn’t show up? <T.Meta color={colors.coral}>Report</T.Meta></T.Meta>
-            </Pressable>
-          ) : null}
           <Spacer size="xxxl" />
         </ScrollView>
       )}

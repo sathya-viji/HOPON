@@ -7,14 +7,14 @@ select plan(21);
 
 select has_table('attendance_marks');
 select has_table('endorsements');
-select has_table('host_noshow_votes');
+select has_table('attendance_resolutions');   -- Trust v2 (replaces host_noshow_votes)
 select has_table('familiar_faces');
 select has_table('audit_logs');
 
-select col_is_unique('attendance_marks', array['plan_id','subject_id'], 'one mark per subject per plan');
+select col_is_unique('attendance_marks', array['plan_id','marked_by','subject_id'], 'Trust v2: one mark per marker+subject per plan');
 select col_is_unique('endorsements', array['plan_id','giver_id','receiver_id'], 'D6: one endorsement per giver→receiver per plan');
 select col_is_pk('familiar_faces', array['user_a_id','user_b_id'], 'familiar_faces canonical pair PK');
-select has_trigger('endorsements', 'trg_endorsement_guard', 'endorsement guard present');
+select has_column('attendance_marks', 'tag', 'Trust v2: staged endorsement tag column');
 
 -- familiar_faces canonical ordering enforced
 select throws_ok($SQL$
@@ -25,7 +25,7 @@ $SQL$, '23514', null, 'familiar_faces rejects a>b (canonical ordering)');
 -- ── RLS enabled ──────────────────────────────────────────────────────────
 select results_eq($SQL$
   select count(*)::int from pg_tables where schemaname='public'
-   and tablename in ('attendance_marks','endorsements','host_noshow_votes','familiar_faces','audit_logs')
+   and tablename in ('attendance_marks','endorsements','attendance_resolutions','familiar_faces','audit_logs')
    and not rowsecurity
 $SQL$, array[0], 'RLS enabled on all Phase 4 tables');
 

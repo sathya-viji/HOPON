@@ -55,12 +55,13 @@ export async function voteHostNoshow(planId: string): Promise<void> {
   if (error) throw error;
 }
 
-interface AttendeeRow { user_id: string; status: string; name: string | null; avatar_path: string | null }
-export interface PlanAttendee { id: string; name: string; avatarUri?: string }
+interface AttendeeRow { user_id: string; is_host: boolean; name: string | null; avatar_path: string | null }
+export interface PlanAttendee { id: string; name: string; avatarUri?: string; isHost: boolean }
 
 /**
- * Endorsable crew of an ENDED plan (host or members only), for the peer endorse
- * list. Reads the get_plan_attendees RPC — see migration 0014r.
+ * Full participant set of an ENDED plan (host + members, incl. the caller), for
+ * the Trust v2 default-present Endorse flow — everyone marks everyone. Reads the
+ * get_plan_attendees RPC (migration 0014s).
  */
 export async function getPlanAttendees(planId: string): Promise<PlanAttendee[]> {
   const { data, error } = await supabase.rpc('get_plan_attendees', { p_plan_id: planId });
@@ -69,6 +70,7 @@ export async function getPlanAttendees(planId: string): Promise<PlanAttendee[]> 
     id: a.user_id,
     name: a.name ?? 'Member',
     avatarUri: avatarUrl(a.avatar_path),
+    isHost: a.is_host,
   }));
 }
 
