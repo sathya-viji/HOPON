@@ -21,6 +21,7 @@ import { GuidelinesScreen } from '@/screens/settings/GuidelinesScreen';
 import { ReportUserScreen } from '@/screens/settings/ReportUserScreen';
 import { ReportPlanScreen } from '@/screens/settings/ReportPlanScreen';
 import { ReportProblemScreen } from '@/screens/settings/ReportProblemScreen';
+import { PushDebugScreen } from '@/screens/settings/PushDebugScreen';
 import { PlanScreen } from '@/screens/plan/PlanScreen';
 import { PlanHostScreen } from '@/screens/plan/PlanHostScreen';
 import { PlanRequestsScreen } from '@/screens/plan/PlanRequestsScreen';
@@ -60,6 +61,7 @@ export function ProfileStack() {
       <Stack.Screen name="ReportUser" component={ReportUserScreen} />
       <Stack.Screen name="ReportPlan" component={ReportPlanScreen} />
       <Stack.Screen name="ReportProblem" component={ReportProblemScreen} />
+      {__DEV__ && <Stack.Screen name="PushDebug" component={PushDebugScreen} />}
       <Stack.Screen name="Plan" component={PlanScreen} />
       <Stack.Screen name="PlanHost" component={PlanHostScreen} />
       <Stack.Screen name="PlanRequests" component={PlanRequestsScreen} />

@@ -18,6 +18,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { ThemeProvider, useTheme } from '@/theme';
 import { startAuthAutoRefresh } from '@/api/client';
+import { configurePushHandler } from '@/services/push';
 import { AuthProvider } from '@/state/AuthContext';
 import { SessionProvider } from '@/state/SessionContext';
 import { RootNavigator } from '@/navigation/RootNavigator';
@@ -28,6 +29,9 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Refresh auth tokens while the app is foregrounded (paused when backgrounded).
 startAuthAutoRefresh();
+
+// Notification display behaviour + Android channel (guarded; no-ops on simulator).
+void configurePushHandler();
 
 const splash = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center' },

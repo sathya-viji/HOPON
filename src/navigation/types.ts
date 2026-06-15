@@ -115,4 +115,5 @@ export type ProfileStackParamList = PlanFlowParamList & {
   ReportUser: { userId: string };
   ReportPlan: { planId: string };
   ReportProblem: undefined;
+  PushDebug: undefined;
 };

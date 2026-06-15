@@ -123,6 +123,13 @@ export function SettingsScreen({ navigation }: Props) {
         <SettingsRow icon="info" label="Terms of Service" onPress={() => navigation.navigate('Terms')} />
         <SettingsRow icon="info" label="Privacy Policy" onPress={() => navigation.navigate('PrivacyPolicy')} />
 
+        {__DEV__ && (
+          <>
+            <SectionLabel label="DEVELOPER" />
+            <SettingsRow icon="settings" label="Push Debug" sub="Expo push token diagnostics" onPress={() => navigation.navigate('PushDebug')} />
+          </>
+        )}
+
         <Spacer size="sm" />
         <SettingsRow icon="log-out" label="Log out" onPress={onLogout} />
         <SettingsRow icon="trash-2" label="Delete account" destructive onPress={() => navigation.navigate('SettingsDelete')} />

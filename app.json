@@ -61,6 +61,13 @@
           "photosPermission": "HopOn needs photo access to let you post recaps and set your profile picture."
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#F0492D"
+        }
+      ],
       "@react-native-community/datetimepicker"
     ],
     "extra": {
