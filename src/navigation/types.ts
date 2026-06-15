@@ -31,7 +31,7 @@ export type OnboardingStackParamList = {
   SignupPhoto: undefined;
   Interests: undefined;
   ContactsSync: undefined;
-  PeopleToFollow: undefined;
+  PeopleToFollow: { sync?: boolean } | undefined;
   Neighbourhood: undefined;
   Terms: undefined;
   PrivacyPolicy: undefined;

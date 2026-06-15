@@ -1,21 +1,18 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { Pressable } from 'react-native';
-import * as Contacts from 'expo-contacts';
 import type { StackScreenProps } from '@react-navigation/stack';
 import { Screen } from '@/components/layout/Screen';
 import { Button } from '@/components/atoms/Button';
 import { Icon } from '@/components/atoms/Icon';
 import { useTheme } from '@/theme';
 import { spacing, fontFamilies, radii } from '@/theme/tokens';
-import { useToast } from '@/hooks/useToast';
 import type { OnboardingStackParamList } from '@/navigation/types';
 
 type Props = StackScreenProps<OnboardingStackParamList, 'ContactsSync'>;
 
 export function ContactsSyncScreen({ navigation }: Props) {
   const { colors } = useTheme();
-  const toast = useToast();
 
   const header = (
     <View style={{ paddingTop: spacing.sm, paddingBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.screenPx }}>
@@ -23,14 +20,9 @@ export function ContactsSyncScreen({ navigation }: Props) {
     </View>
   );
 
-  const syncContacts = async () => {
-    try {
-      const { status } = await Contacts.requestPermissionsAsync();
-      if (status !== 'granted') { toast.show('Contact access denied — you can change this later'); navigation.navigate('PeopleToFollow'); return; }
-      toast.show('Looking for friends on hopon…');
-      navigation.navigate('PeopleToFollow');
-    } catch { navigation.navigate('PeopleToFollow'); }
-  };
+  // The single contacts-permission prompt + matching happens on the next screen
+  // (PeopleToFollow) so we don't double-prompt; this screen just captures intent.
+  const syncContacts = () => navigation.navigate('PeopleToFollow', { sync: true });
 
   return (
     <Screen header={header}>

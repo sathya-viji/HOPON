@@ -270,6 +270,18 @@ async function main() {
   ok(Number(db(`select count(*) from familiar_faces where (user_a_id='${U.kiran}' or user_b_id='${U.kiran}')`)) >= 1, 'familiar faces created from resolved-present', 'High');
   ok(Number(db(`select count(*) from endorsements`)) >= 1, 'endorsements finalized at resolution', 'High');
 
+  // ───────────────── Contacts match (onboarding, Wave 6) ─────────────────
+  section('11. Contacts match (onboarding)');
+  const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
+  const cmRes = await fetch(`${BASE}/functions/v1/contacts-match`, {
+    method: 'POST', headers: { apikey: ANON, Authorization: `Bearer ${TOK.you}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hashes: [sha('+919999999993'), sha('+919999999994'), sha('+910000000000')] }),
+  });
+  const cm = await cmRes.json().catch(() => ({}));
+  ok(cmRes.status === 200 && Array.isArray(cm.matches) && cm.matches.some((m) => m.id === U.priya),
+    'contacts-match returns a seeded contact (Priya) for the hashed +E.164', 'High', `status ${cmRes.status}`);
+  ok(Array.isArray(cm.matches) && !cm.matches.some((m) => m.id === U.you), 'contacts-match excludes the caller', 'Medium');
+
   // ───────────────── SUMMARY ─────────────────
   console.log(`\n──────────── SUMMARY ────────────`);
   console.log(`PASS: ${pass}   FAIL: ${issues.length}`);
