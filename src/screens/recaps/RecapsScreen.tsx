@@ -1,7 +1,9 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { Pressable } from 'react-native';
 import { Image } from 'expo-image';
+import { AnimatedStoryRing } from '@/components/atoms/AnimatedStoryRing';
+import { usePendingStory, clearPendingStory, PENDING_STORY_MAX_AGE_MS } from '@/state/pendingStory';
 import type { StackScreenProps } from '@react-navigation/stack';
 import { Screen } from '@/components/layout/Screen';
 import { Row } from '@/components/layout/Row';
@@ -23,6 +25,7 @@ import { getFamiliarFaces } from '@/api/trust';
 import { getMyProfile } from '@/api/users';
 import { supabase } from '@/api/client';
 import { errorMessage } from '@/api/errors';
+import { useToast } from '@/hooks/useToast';
 import type { Recap, StoryGroup } from '@/types';
 import type { RecapsStackParamList } from '@/navigation/types';
 
@@ -58,7 +61,31 @@ async function loadFeed(): Promise<FeedData> {
 
 export function RecapsScreen({ navigation }: Props) {
   const { colors } = useTheme();
+  const toast = useToast();
   const { data, loading, refreshing, error, refetch } = useFocusResource(loadFeed);
+  const pending = usePendingStory();
+
+  const myUid = data?.myUid ?? null;
+  const myGroup = myUid ? data?.groups.find((g) => g.author.id === myUid) ?? null : null;
+  // The author's freshly-posted story is moderation-`pending` (hidden from the
+  // feed), so we surface it from the local pending-store with an animated "in
+  // review" ring — until it goes live (appears in myGroup) or ages out.
+  const pendingFresh = !!pending && pending.postedAt > Date.now() - PENDING_STORY_MAX_AGE_MS;
+  const showPending = !myGroup && pendingFresh;
+
+  // Once the story is approved (shows up as myGroup) or the marker ages out,
+  // drop the local pending marker.
+  useEffect(() => {
+    if (pending && (myGroup || !pendingFresh)) clearPendingStory();
+  }, [pending, myGroup, pendingFresh]);
+
+  // While a story is in review, poll the feed so it flips to "live" on its own
+  // once a moderator approves it (no manual refresh needed).
+  useEffect(() => {
+    if (!showPending) return;
+    const id = setInterval(() => refetch(), 10000);
+    return () => clearInterval(id);
+  }, [showPending, refetch]);
 
   const header = (
     <ScreenPad style={{ borderBottomWidth: borderWidths.thin, borderBottomColor: colors.border }}>
@@ -107,9 +134,7 @@ export function RecapsScreen({ navigation }: Props) {
   const recaps = data?.recaps ?? [];
   const groups = data?.groups ?? [];
   const familiarSet = new Set(data?.familiarIds ?? []);
-  const myUid = data?.myUid ?? null;
 
-  const myGroup = myUid ? groups.find((g) => g.author.id === myUid) ?? null : null;
   const otherGroups = groups.filter((g) => g.author.id !== myUid);
   const myStoryUri = myGroup?.stories[0]?.imageUri ?? data?.myAvatarUri;
 
@@ -127,25 +152,40 @@ export function RecapsScreen({ navigation }: Props) {
         <Stack style={{ paddingVertical: spacing.sm + 2, borderBottomWidth: borderWidths.thin, borderBottomColor: colors.border }}>
           <T.CapsSm style={{ paddingHorizontal: spacing.screenPx, paddingBottom: spacing.sm }}>Just happened</T.CapsSm>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.screenPx, gap: spacing.md }}>
-            {/* Your story bubble */}
+            {/* Your story bubble — live / in-review / add */}
             <Stack style={{ alignItems: 'center', gap: 5, width: 64, flexShrink: 0, position: 'relative' }}>
               <Pressable
-                onPress={() => (myGroup ? openStoryGroup(myGroup) : navigation.navigate('CreateStory'))}
+                onPress={() => {
+                  if (myGroup) openStoryGroup(myGroup);
+                  else if (showPending) toast.show('Your story is in review — it’ll go live once approved.');
+                  else navigation.navigate('CreateStory');
+                }}
                 accessibilityRole="button"
-                accessibilityLabel={myGroup ? 'View your story' : 'Add your story'}
+                accessibilityLabel={myGroup ? 'View your story' : showPending ? 'Your story is in review' : 'Add your story'}
               >
-                <View style={{ width: 58, height: 58, borderRadius: 29, padding: 2.5, backgroundColor: myGroup ? colors.coral : colors.borderMid }}>
-                  <View style={{ flex: 1, borderRadius: 29, overflow: 'hidden', borderWidth: 2.5, alignItems: 'center', justifyContent: 'center', borderColor: colors.bg, backgroundColor: colors.surface }}>
-                    {myStoryUri ? (
-                      <Image source={{ uri: myStoryUri }} style={[StyleSheet_absoluteFill, !myGroup && { opacity: 0.5 }]} contentFit="cover" />
-                    ) : null}
-                    {!myGroup ? (
-                      <View style={{ position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.coral, borderColor: colors.bg }}>
-                        <Icon name="plus" size={10} color={colors.white} strokeWidth={2.5} />
-                      </View>
-                    ) : null}
+                {showPending ? (
+                  <AnimatedStoryRing size={58} color={colors.coral}>
+                    <View style={{ width: 50, height: 50, borderRadius: 25, overflow: 'hidden', borderWidth: 2.5, alignItems: 'center', justifyContent: 'center', borderColor: colors.bg, backgroundColor: colors.surface }}>
+                      <Image source={{ uri: pending!.imageUri }} style={StyleSheet_absoluteFill} contentFit="cover" />
+                    </View>
+                    <View style={{ position: 'absolute', bottom: -1, right: -1, width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.coral, borderColor: colors.bg }}>
+                      <Icon name="clock" size={10} color={colors.white} strokeWidth={2.5} />
+                    </View>
+                  </AnimatedStoryRing>
+                ) : (
+                  <View style={{ width: 58, height: 58, borderRadius: 29, padding: 2.5, backgroundColor: myGroup ? colors.coral : colors.borderMid }}>
+                    <View style={{ flex: 1, borderRadius: 29, overflow: 'hidden', borderWidth: 2.5, alignItems: 'center', justifyContent: 'center', borderColor: colors.bg, backgroundColor: colors.surface }}>
+                      {myStoryUri ? (
+                        <Image source={{ uri: myStoryUri }} style={[StyleSheet_absoluteFill, !myGroup && { opacity: 0.5 }]} contentFit="cover" />
+                      ) : null}
+                      {!myGroup ? (
+                        <View style={{ position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.coral, borderColor: colors.bg }}>
+                          <Icon name="plus" size={10} color={colors.white} strokeWidth={2.5} />
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
-                </View>
+                )}
               </Pressable>
               {myGroup ? (
                 <Pressable
@@ -156,7 +196,9 @@ export function RecapsScreen({ navigation }: Props) {
                   <Icon name="plus" size={10} color={colors.white} strokeWidth={2.5} />
                 </Pressable>
               ) : null}
-              <T.MetaXs style={{ textAlign: 'center' }}>{myGroup ? 'Your story' : 'Add story'}</T.MetaXs>
+              <T.MetaXs color={showPending ? colors.coral : undefined} style={{ textAlign: 'center' }}>
+                {myGroup ? 'Your story' : showPending ? 'In review' : 'Add story'}
+              </T.MetaXs>
             </Stack>
 
             {otherGroups.map((g) => (

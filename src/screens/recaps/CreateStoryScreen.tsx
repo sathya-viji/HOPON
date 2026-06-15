@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/useToast';
 import { getMyPlans, type MyPlanItem } from '@/api/plans';
 import { postStory } from '@/api/stories';
 import { uploadImage } from '@/api/storage';
+import { setPendingStory } from '@/state/pendingStory';
 import { errorMessage } from '@/api/errors';
 import type { RecapsStackParamList } from '@/navigation/types';
 
@@ -56,7 +57,10 @@ export function CreateStoryScreen({ navigation }: Props) {
       const path = await uploadImage('stories', imageUri);
       await postStory(path, caption, linkedPlanId, linkedPlan?.activity ?? null);
       // Stories are moderation-gated — pending until approved, then visible 24h.
-      toast.show('Story shared — it’ll appear once approved 🎉');
+      // Remember it locally so the author's bubble shows an animated "in review"
+      // ring immediately (the pending story isn't returned by get_stories_feed).
+      setPendingStory(imageUri);
+      toast.show('Story shared — it’ll go live once approved 🎉');
       navigation.goBack();
     } catch (e) {
       toast.show(errorMessage(e, 'Couldn’t share your story. Try again.'));
