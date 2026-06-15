@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, ScrollView, TextInput as RNTextInput, Modal } from 'react-native';
+import { View, ScrollView, TextInput as RNTextInput, Modal, ActivityIndicator } from 'react-native';
 import { Pressable } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
@@ -17,8 +17,12 @@ import { FieldRow } from '@/components/atoms/inputs/FieldRow';
 import * as T from '@/components/atoms/T';
 import { useTheme } from '@/theme';
 import { spacing, borderWidths, radii, iconSizes, avatarSizes, HIT_SLOP, CATEGORIES } from '@/theme/tokens';
-import { getUserById, CURRENT_USER_ID } from '@/mocks';
+import { getMyProfile, updateMyProfile } from '@/api/users';
+import { setInterests as persistInterests } from '@/api/auth';
+import { uploadImage } from '@/api/storage';
+import { errorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
+import type { User } from '@/types';
 import type { ProfileStackParamList } from '@/navigation/types';
 
 type Props = StackScreenProps<ProfileStackParamList, 'ProfileEdit'>;
@@ -31,26 +35,42 @@ export function ProfileEditScreen({ navigation }: Props) {
     : { instagram: { bg: '#FCE4F0', fg: '#E1306C' }, linkedin: { bg: '#E8F0FB', fg: '#0A66C2' }, facebook: { bg: '#E7F0FD', fg: '#1877F2' } };
 
   const toast = useToast();
-  const me = getUserById(CURRENT_USER_ID)!;
+  const [me, setMe] = useState<User | null>(null);
 
-  const [name, setName]         = useState(me.name);
-  const [handle, setHandle]     = useState(me.handle.replace('@', ''));
-  const [bio, setBio]           = useState(me.bio ?? '');
-  const [instagram, setInstagram] = useState(me.socialLinks?.instagram ?? '');
-  const [linkedin, setLinkedin] = useState(me.socialLinks?.linkedin ?? '');
-  const [facebook, setFacebook] = useState(me.socialLinks?.facebook ?? '');
+  const [name, setName]         = useState('');
+  const [bio, setBio]           = useState('');
+  const [instagram, setInstagram] = useState('');
+  const [linkedin, setLinkedin] = useState('');
+  const [facebook, setFacebook] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
-  const [interests, setInterests] = useState<string[]>(me.interests ?? []);
+  const [interests, setInterestsState] = useState<string[]>([]);
   const [interestsOpen, setInterestsOpen] = useState(false);
   const [discardSheet, setDiscardSheet]   = useState(false);
   const pendingAction = useRef<any>(null);
   const saving = useRef(false);
 
-  const isDirty =
-    name !== me.name || handle !== me.handle.replace('@', '') ||
+  // Load the signed-in user's real profile and seed the form.
+  useEffect(() => {
+    let cancelled = false;
+    getMyProfile().then((p) => {
+      if (cancelled || !p) return;
+      setMe(p);
+      setName(p.name);
+      setBio(p.bio ?? '');
+      setInstagram(p.socialLinks?.instagram ?? '');
+      setLinkedin(p.socialLinks?.linkedin ?? '');
+      setFacebook(p.socialLinks?.facebook ?? '');
+      setInterestsState(p.interests ?? []);
+    }).catch(() => { /* leave empty; save guarded on `me` */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  const isDirty = !!me && (
+    name !== me.name ||
     bio !== (me.bio ?? '') || instagram !== (me.socialLinks?.instagram ?? '') ||
     linkedin !== (me.socialLinks?.linkedin ?? '') || facebook !== (me.socialLinks?.facebook ?? '') ||
-    avatarUri !== null || interests.join(',') !== (me.interests ?? []).join(',');
+    avatarUri !== null || interests.join(',') !== (me.interests ?? []).join(',')
+  );
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
@@ -70,12 +90,35 @@ export function ProfileEditScreen({ navigation }: Props) {
   };
 
   const toggleInterest = useCallback((id: string) => {
-    setInterests((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+    setInterestsState((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   }, []);
 
-  const handleSave = () => { saving.current = true; toast.show('Profile saved'); navigation.goBack(); };
+  const handleSave = async () => {
+    if (!me || saving.current) return;
+    saving.current = true;
+    try {
+      let avatarPath: string | undefined;
+      if (avatarUri) avatarPath = await uploadImage('avatars', avatarUri);
+      await updateMyProfile({
+        name: name.trim(),
+        bio: bio.trim() ? bio.trim() : null,
+        instagram: instagram.trim() ? instagram.trim() : null,
+        linkedin: linkedin.trim() ? linkedin.trim() : null,
+        facebook: facebook.trim() ? facebook.trim() : null,
+        ...(avatarPath ? { avatarPath } : {}),
+      });
+      if (interests.join(',') !== (me.interests ?? []).join(',')) {
+        await persistInterests(interests);
+      }
+      toast.show('Profile saved');
+      navigation.goBack();
+    } catch (e) {
+      saving.current = false;
+      toast.show(errorMessage(e, 'Couldn’t save profile. Try again.'));
+    }
+  };
 
-  const displayUri = avatarUri ?? me.avatarUri;
+  const displayUri = avatarUri ?? me?.avatarUri;
 
   const header = (
     <ScreenPad>
@@ -88,6 +131,16 @@ export function ProfileEditScreen({ navigation }: Props) {
       </Row>
     </ScreenPad>
   );
+
+  if (!me) {
+    return (
+      <Screen header={header} scroll={false}>
+        <Stack style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.coral} />
+        </Stack>
+      </Screen>
+    );
+  }
 
   return (
     <>
@@ -104,7 +157,7 @@ export function ProfileEditScreen({ navigation }: Props) {
                   <Image source={{ uri: displayUri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                 </View>
               ) : (
-                <Avatar uri={undefined} name={me.name} size={56} shape="rounded" />
+                <Avatar uri={undefined} name={me?.name} size={56} shape="rounded" />
               )}
               <View style={{ position: 'absolute', bottom: -4, right: -4, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ctaBg }}>
                 <Icon name="camera" size={iconSizes.xxs + 1} color={colors.ctaFg} />
@@ -123,11 +176,15 @@ export function ProfileEditScreen({ navigation }: Props) {
             </Stack>
             <Stack gap="sm">
               <T.CapsSm>Handle</T.CapsSm>
-              <TextInput placeholder="handle" value={handle} onChangeText={setHandle} maxLength={24} />
+              <Row gap="sm" style={{ alignItems: 'center', paddingVertical: 13, paddingHorizontal: spacing.lg, borderRadius: radii.sm, borderWidth: borderWidths.thin, backgroundColor: colors.surfaceMid, borderColor: colors.border }}>
+                <T.BodyLg color={colors.textSub} style={{ flex: 1 }}>{me?.handle ?? ''}</T.BodyLg>
+                <Icon name="lock" size={iconSizes.xs} color={colors.textDim} />
+              </Row>
+              <T.MetaXs color={colors.textDim}>Usernames can't be changed.</T.MetaXs>
             </Stack>
             <Stack gap="sm">
               <T.CapsSm>Neighbourhood</T.CapsSm>
-              <FieldRow icon="map-pin" label="" value={me.neighbourhood} onPress={() => navigation.navigate('SettingsNeighbourhood')} selected />
+              <FieldRow icon="map-pin" label="" value={me?.neighbourhood ?? ''} onPress={() => navigation.navigate('SettingsNeighbourhood')} selected />
             </Stack>
             <Stack gap="sm">
               <T.CapsSm>Bio (Optional)</T.CapsSm>

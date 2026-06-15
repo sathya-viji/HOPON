@@ -6,11 +6,8 @@ import {
   Animated,
   Pressable,
   StatusBar,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,81 +16,136 @@ import type { StackScreenProps } from '@react-navigation/stack';
 import { Icon } from '@/components/atoms/Icon';
 import { Avatar } from '@/components/atoms/Avatar';
 import { fontFamilies, spacing, radii } from '@/theme/tokens';
-import { stories, getUserById } from '@/mocks';
 import { timeAgo } from '@/utils/time';
+import { getStoriesFeed, recordStoryView, deleteStory } from '@/api/stories';
+import { submitReport, type ReportReasonValue } from '@/api/safety';
+import { supabase } from '@/api/client';
+import { useToast } from '@/hooks/useToast';
+import type { Story, SocialAuthor } from '@/types';
 import type { RecapsStackParamList } from '@/navigation/types';
 
 type Props = StackScreenProps<RecapsStackParamList, 'StoryViewer'>;
 
 const STORY_DURATION = 5000;
-
-// absoluteFill is a structural layout constant — acceptable in screen
 const StyleSheet_absoluteFill = StyleSheet.absoluteFill;
+
+const REPORT_REASONS: { label: string; value: ReportReasonValue }[] = [
+  { label: 'Spam', value: 'spam' },
+  { label: 'Harassment', value: 'harassment' },
+  { label: 'Inappropriate content', value: 'inappropriate_content' },
+  { label: 'Other', value: 'other' },
+];
 
 export function StoryViewerScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const startIdx = stories.findIndex((s) => s.id === route.params.storyId);
-  const [currentIdx, setCurrentIdx] = useState(startIdx < 0 ? 0 : startIdx);
-  const [liked, setLiked] = useState<Set<string>>(new Set());
-  const [paused, setPaused] = useState(false);
-  const [commentOpen, setCommentOpen] = useState(false);
-  const [commentText, setCommentText] = useState('');
-  const [comments, setComments] = useState([
-    { id: 'c1', name: 'Arjun M', text: 'Looks amazing! 🔥', time: '2m ago' },
-    { id: 'c2', name: 'Priya S', text: 'Love this spot', time: '5m ago' },
-    { id: 'c3', name: 'Kiran B', text: 'Been meaning to go here!', time: '11m ago' },
-  ]);
+  const toast = useToast();
 
-  const story = stories[currentIdx];
-  const author = getUserById(story.authorId);
+  const [author, setAuthor] = useState<SocialAuthor | null>(null);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [myUid, setMyUid] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
+
   const progress = useRef(new Animated.Value(0)).current;
   const animRef = useRef<Animated.CompositeAnimation | null>(null);
 
+  // Load the author-group that contains the story we were opened on.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const groups = await getStoriesFeed();
+        if (cancelled) return;
+        setMyUid(session?.user?.id ?? null);
+        const group = groups.find((g) => g.stories.some((s) => s.id === route.params.storyId));
+        if (!group) { navigation.goBack(); return; }
+        setAuthor(group.author);
+        setStories(group.stories);
+        setCurrentIdx(Math.max(0, group.stories.findIndex((s) => s.id === route.params.storyId)));
+      } catch {
+        if (!cancelled) navigation.goBack();
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [route.params.storyId, navigation]);
+
+  const story = stories[currentIdx];
+  const isMine = !!(myUid && author && author.id === myUid);
+
   const goToStory = (idx: number) => {
-    if (idx < 0 || idx >= stories.length) {
-      navigation.goBack();
-      return;
-    }
+    if (idx < 0 || idx >= stories.length) { navigation.goBack(); return; }
     progress.setValue(0);
     setCurrentIdx(idx);
   };
 
+  // Record a view each time a story is shown (idempotent server-side).
   useEffect(() => {
+    if (story) recordStoryView(story.id).catch(() => { /* best-effort */ });
+  }, [story?.id]);
+
+  useEffect(() => {
+    if (!story) return;
     progress.setValue(0);
     if (paused) return;
-    animRef.current = Animated.timing(progress, {
-      toValue: 1,
-      duration: STORY_DURATION,
-      useNativeDriver: false,
-    });
-    animRef.current.start(({ finished }) => {
-      if (finished) goToStory(currentIdx + 1);
-    });
+    animRef.current = Animated.timing(progress, { toValue: 1, duration: STORY_DURATION, useNativeDriver: false });
+    animRef.current.start(({ finished }) => { if (finished) goToStory(currentIdx + 1); });
     return () => { animRef.current?.stop(); };
-  }, [currentIdx, paused]);
+  }, [currentIdx, paused, story?.id]);
 
   const handleTapLeft = () => { animRef.current?.stop(); goToStory(currentIdx - 1); };
   const handleTapRight = () => { animRef.current?.stop(); goToStory(currentIdx + 1); };
-  const isLiked = liked.has(story.id);
 
-  const submitComment = () => {
-    if (!commentText.trim()) return;
-    setComments((prev) => [{ id: Date.now().toString(), name: 'You', text: commentText.trim(), time: 'just now' }, ...prev]);
-    setCommentText('');
+  const onReport = () => {
+    if (!story) return;
+    setPaused(true);
+    Alert.alert('Report this story', 'Why are you reporting it?', [
+      ...REPORT_REASONS.map((r) => ({
+        text: r.label,
+        onPress: async () => {
+          try { await submitReport('story', story.id, r.value); toast.show('Thanks — our team will review this.'); }
+          catch { toast.show('Couldn’t submit report.'); }
+          finally { setPaused(false); }
+        },
+      })),
+      { text: 'Cancel', style: 'cancel' as const, onPress: () => setPaused(false) },
+    ]);
   };
+
+  const onDelete = () => {
+    if (!story) return;
+    setPaused(true);
+    Alert.alert('Delete story?', 'This removes it for everyone.', [
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try { await deleteStory(story.id); toast.show('Story deleted'); navigation.goBack(); }
+        catch { toast.show('Couldn’t delete story.'); setPaused(false); }
+      } },
+      { text: 'Cancel', style: 'cancel', onPress: () => setPaused(false) },
+    ]);
+  };
+
+  if (loading || !story || !author) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+        <StatusBar hidden translucent backgroundColor="transparent" />
+        <ActivityIndicator color="#fff" />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <StatusBar hidden translucent backgroundColor="transparent" />
 
-      {/* Full-bleed photo */}
       <Image source={{ uri: story.imageUri }} style={StyleSheet_absoluteFill} contentFit="cover" />
 
-      {/* Gradients — intentional media chrome rgba values */}
       <LinearGradient colors={['rgba(0,0,0,0.72)', 'transparent']} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 180, zIndex: 2 }} pointerEvents="none" />
       <LinearGradient colors={['transparent', 'rgba(0,0,0,0.82)']} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 300, zIndex: 2 }} pointerEvents="none" />
 
-      {/* Progress bars */}
+      {/* Progress bars (one per story in this author's group) */}
       <View style={{ position: 'absolute', top: insets.top + 8, left: 12, right: 12, flexDirection: 'row', gap: 4, zIndex: 10 }}>
         {stories.map((s, i) => (
           <View key={s.id} style={{ flex: 1, height: 2.5, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.4)', overflow: 'hidden' }}>
@@ -113,10 +165,10 @@ export function StoryViewerScreen({ navigation, route }: Props) {
       <View style={{ position: 'absolute', top: insets.top + 20, left: 12, right: 12, flexDirection: 'row', alignItems: 'center', zIndex: 10 }}>
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ borderRadius: 19, borderWidth: 2, borderColor: 'rgba(255,255,255,0.7)', overflow: 'hidden' }}>
-            <Avatar uri={author?.avatarUri} name={author?.name} size={36} shape="circle" />
+            <Avatar uri={author.avatarUri} name={author.name} size={36} shape="circle" />
           </View>
           <View>
-            <Text style={{ fontFamily: fontFamilies.bold, fontSize: 14, color: '#fff' }}>{author?.name}</Text>
+            <Text style={{ fontFamily: fontFamilies.bold, fontSize: 14, color: '#fff' }}>{author.name}</Text>
             <Text style={{ fontFamily: fontFamilies.regular, fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 1 }}>{timeAgo(story.createdAt)}</Text>
           </View>
         </View>
@@ -144,65 +196,24 @@ export function StoryViewerScreen({ navigation, route }: Props) {
         ) : null}
       </View>
 
-      {/* Bottom-right actions */}
-      <View style={{ position: 'absolute', bottom: 0, right: 0, width: 72, alignItems: 'center', flexDirection: 'column', gap: 20, paddingRight: 12, paddingBottom: Math.max(insets.bottom, 16) + 16, zIndex: 20 }}>
-        <Pressable
-          onPress={() => setLiked((prev) => { const next = new Set(prev); if (next.has(story.id)) next.delete(story.id); else next.add(story.id); return next; })}
-          onPressIn={() => setPaused(true)}
-          onPressOut={() => setPaused(false)}
-          hitSlop={10}
-          style={{ alignItems: 'center', gap: 4 }}
-        >
-          <Icon name="heart" size={30} color={isLiked ? '#FF375F' : '#fff'} strokeWidth={isLiked ? 2.5 : 1.75} />
-          <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 12, color: '#fff' }}>{isLiked ? 15 : 14}</Text>
-        </Pressable>
-        <Pressable onPress={() => { setPaused(true); setCommentOpen(true); }} hitSlop={10} style={{ alignItems: 'center', gap: 4 }}>
-          <Icon name="message-circle" size={30} color="#fff" strokeWidth={1.75} />
-          <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 12, color: '#fff' }}>{comments.length}</Text>
-        </Pressable>
-        <Pressable onPressIn={() => setPaused(true)} onPressOut={() => setPaused(false)} hitSlop={10} style={{ alignItems: 'center', gap: 4 }}>
-          <Icon name="share-2" size={30} color="#fff" strokeWidth={1.75} />
+      {/* Bottom-right actions: report (others) or delete (own), + share */}
+      <View style={{ position: 'absolute', bottom: 0, right: 0, width: 72, alignItems: 'center', flexDirection: 'column', gap: 22, paddingRight: 12, paddingBottom: Math.max(insets.bottom, 16) + 16, zIndex: 20 }}>
+        {isMine ? (
+          <Pressable onPress={onDelete} hitSlop={10} style={{ alignItems: 'center', gap: 4 }}>
+            <Icon name="trash-2" size={28} color="#fff" strokeWidth={1.75} />
+            <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 12, color: '#fff' }}>Delete</Text>
+          </Pressable>
+        ) : (
+          <Pressable onPress={onReport} hitSlop={10} style={{ alignItems: 'center', gap: 4 }}>
+            <Icon name="flag" size={28} color="#fff" strokeWidth={1.75} />
+            <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 12, color: '#fff' }}>Report</Text>
+          </Pressable>
+        )}
+        <Pressable onPressIn={() => setPaused(true)} onPressOut={() => setPaused(false)} onPress={() => toast.show('Share')} hitSlop={10} style={{ alignItems: 'center', gap: 4 }}>
+          <Icon name="share-2" size={28} color="#fff" strokeWidth={1.75} />
           <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 12, color: '#fff' }}>Share</Text>
         </Pressable>
       </View>
-
-      {/* Comment sheet */}
-      <Modal visible={commentOpen} transparent animationType="slide" onRequestClose={() => { setCommentOpen(false); setPaused(false); }}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }} onPress={() => { setCommentOpen(false); setPaused(false); }} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: spacing.screenPx, paddingTop: 12, paddingBottom: Math.max(insets.bottom, 16) + 8 }}>
-            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#E0E0E0', alignSelf: 'center', marginBottom: 14 }} />
-            <Text style={{ fontFamily: fontFamilies.bold, fontSize: 16, color: '#0A0A0A', marginBottom: 14 }}>Comments</Text>
-            <ScrollView style={{ maxHeight: 240 }} showsVerticalScrollIndicator={false}>
-              {comments.map((c) => (
-                <View key={c.id} style={{ flexDirection: 'row', gap: 10, marginBottom: 14, alignItems: 'flex-start' }}>
-                  <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#F0F0F0', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontFamily: fontFamilies.bold, fontSize: 13, color: '#555' }}>{c.name[0]}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fontFamilies.bold, fontSize: 13, color: '#0A0A0A' }}>{c.name} <Text style={{ fontFamily: fontFamilies.regular, fontSize: 11, color: '#999' }}>{c.time}</Text></Text>
-                    <Text style={{ fontFamily: fontFamilies.regular, fontSize: 13, color: '#333', marginTop: 2 }}>{c.text}</Text>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderTopWidth: 1, borderTopColor: '#F0F0F0', paddingTop: 10, marginTop: 4 }}>
-              <TextInput
-                placeholder="Add a comment…"
-                placeholderTextColor="#999"
-                value={commentText}
-                onChangeText={setCommentText}
-                style={{ flex: 1, fontFamily: fontFamilies.regular, fontSize: 14, color: '#0A0A0A', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#F5F5F5', borderRadius: 20 }}
-                returnKeyType="send"
-                onSubmitEditing={submitComment}
-              />
-              <Pressable onPress={submitComment} hitSlop={8}>
-                <Icon name="send" size={20} color={commentText.trim() ? '#FF4D2E' : '#ccc'} />
-              </Pressable>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </View>
   );
 }

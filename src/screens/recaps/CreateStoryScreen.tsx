@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, TextInput, ScrollView, KeyboardAvoidingView, Platform, StatusBar, Modal, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, TextInput, ScrollView, KeyboardAvoidingView, Platform, StatusBar, Modal, StyleSheet, ActivityIndicator } from 'react-native';
 import { Pressable } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
@@ -11,13 +11,15 @@ import { Stack } from '@/components/layout/Stack';
 import { Row } from '@/components/layout/Row';
 import * as T from '@/components/atoms/T';
 import { fontFamilies, spacing, radii, iconSizes, CATEGORIES } from '@/theme/tokens';
-import { plans, CURRENT_USER_ID } from '@/mocks';
 import { useToast } from '@/hooks/useToast';
+import { getMyPlans, type MyPlanItem } from '@/api/plans';
+import { postStory } from '@/api/stories';
+import { uploadImage } from '@/api/storage';
+import { errorMessage } from '@/api/errors';
 import type { RecapsStackParamList } from '@/navigation/types';
 
 type Props = StackScreenProps<RecapsStackParamList, 'CreateStory'>;
 
-// absoluteFill is a structural layout constant — acceptable in screen
 const StyleSheet_absoluteFill = StyleSheet.absoluteFill;
 
 export function CreateStoryScreen({ navigation }: Props) {
@@ -27,9 +29,16 @@ export function CreateStoryScreen({ navigation }: Props) {
   const [caption, setCaption] = useState('');
   const [linkedPlanId, setLinkedPlanId] = useState<string | null>(null);
   const [planSheetOpen, setPlanSheetOpen] = useState(false);
+  const [myPlans, setMyPlans] = useState<MyPlanItem[] | null>(null);
+  const [posting, setPosting] = useState(false);
 
-  const myPlans = plans.filter((p) => p.hostId === CURRENT_USER_ID || p.joinerIds.includes(CURRENT_USER_ID));
-  const linkedPlan = myPlans.find((p) => p.id === linkedPlanId) ?? null;
+  useEffect(() => {
+    let cancelled = false;
+    getMyPlans().then((p) => { if (!cancelled) setMyPlans(p); }).catch(() => { if (!cancelled) setMyPlans([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const linkedPlan = myPlans?.find((p) => p.id === linkedPlanId) ?? null;
   const linkedCat = linkedPlan ? CATEGORIES.find((c) => c.id === linkedPlan.categoryId) : null;
 
   const pickPhoto = async () => {
@@ -39,10 +48,20 @@ export function CreateStoryScreen({ navigation }: Props) {
     if (!result.canceled && result.assets[0]) setImageUri(result.assets[0].uri);
   };
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!imageUri) { toast.show('Pick a photo first'); return; }
-    toast.show('Story posted! Visible for 24 hours 🎉');
-    navigation.goBack();
+    if (posting) return;
+    setPosting(true);
+    try {
+      const path = await uploadImage('stories', imageUri);
+      await postStory(path, caption, linkedPlanId, linkedPlan?.activity ?? null);
+      // Stories are moderation-gated — pending until approved, then visible 24h.
+      toast.show('Story shared — it’ll appear once approved 🎉');
+      navigation.goBack();
+    } catch (e) {
+      toast.show(errorMessage(e, 'Couldn’t share your story. Try again.'));
+      setPosting(false);
+    }
   };
 
   return (
@@ -111,9 +130,13 @@ export function CreateStoryScreen({ navigation }: Props) {
             <Icon name="map-pin" size={iconSizes.xs} color={linkedPlan ? '#fff' : 'rgba(255,255,255,0.6)'} />
             <T.Semibold style={{ flex: 1, fontSize: 13, color: linkedPlan ? '#fff' : 'rgba(255,255,255,0.6)' }} numberOfLines={1}>{linkedPlan ? linkedPlan.activity.split(' ').slice(0, 3).join(' ') : 'Link a plan'}</T.Semibold>
           </Pressable>
-          <Pressable onPress={handlePost} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: radii.full, paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.lg, opacity: !imageUri ? 0.4 : 1, backgroundColor: '#FF5C5C' }}>
-            <T.LabelMd style={{ color: '#fff' }}>Your story</T.LabelMd>
-            <Icon name="chevron-right" size={iconSizes.sm} color="#fff" strokeWidth={2.5} />
+          <Pressable onPress={handlePost} disabled={!imageUri || posting} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: radii.full, paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.lg, opacity: !imageUri || posting ? 0.4 : 1, backgroundColor: '#FF5C5C' }}>
+            {posting ? <ActivityIndicator color="#fff" size="small" /> : (
+              <>
+                <T.LabelMd style={{ color: '#fff' }}>Your story</T.LabelMd>
+                <Icon name="chevron-right" size={iconSizes.sm} color="#fff" strokeWidth={2.5} />
+              </>
+            )}
           </Pressable>
         </Row>
       </Stack>
@@ -126,7 +149,9 @@ export function CreateStoryScreen({ navigation }: Props) {
           <View style={{ marginBottom: spacing.md }}>
             <T.LabelLg style={{ color: '#0A0A0A' }}>Link to a plan</T.LabelLg>
           </View>
-          {myPlans.length === 0 ? (
+          {myPlans === null ? (
+            <ActivityIndicator color="#FF5C5C" style={{ paddingVertical: spacing.xxl }} />
+          ) : myPlans.length === 0 ? (
             <T.Meta style={{ textAlign: 'center', paddingVertical: spacing.xxl, color: '#999' }}>No recent plans found</T.Meta>
           ) : (
             <ScrollView showsVerticalScrollIndicator={false}>

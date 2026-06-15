@@ -21,14 +21,16 @@ import { InterestPills } from '@/components/molecules/InterestPills';
 import { SocialLinks } from '@/components/molecules/SocialLinks';
 import { useTheme } from '@/theme';
 import { spacing, borderWidths, radii, iconSizes, avatarSizes, HIT_SLOP, CATEGORIES } from '@/theme/tokens';
-import { CURRENT_USER_ID, getUserById, plans, recaps } from '@/mocks';
 import { RecapCard } from '@/components/molecules/RecapCard';
 import { PlanHistoryRow } from '@/components/molecules/PlanHistoryRow';
 import { planDetailRoute } from '@/utils/plan';
 import { useToast } from '@/hooks/useToast';
 import { getMyProfile } from '@/api/users';
 import { getEndorsementSummary, getFamiliarFaces, type EndorsementCount, type FamiliarFace } from '@/api/trust';
-import type { User } from '@/types';
+import { getMyPlans } from '@/api/plans';
+import { getUserRecaps } from '@/api/recaps';
+import { getMyFollowCounts } from '@/api/follows';
+import type { User, Recap, Plan } from '@/types';
 import type { ProfileStackParamList } from '@/navigation/types';
 
 type Props = StackScreenProps<ProfileStackParamList, 'Profile'>;
@@ -39,34 +41,39 @@ export function ProfileScreen({ navigation }: Props) {
   const toast = useToast();
   const [tab, setTab] = useState<ProfileTab>('hosted');
 
-  // Real identity + Trust data (Wave 4): profile/score, endorsement summary,
-  // familiar faces. Plan-history tabs + follow counts remain mock pending the
-  // Social wave (no plan-history / follows read RPCs yet).
+  // Real identity + Trust data (Wave 4) + social data (Wave 5): profile/score,
+  // endorsement summary, familiar faces, follow counts, plan history, recaps.
   const [me, setMe] = useState<User | null>(null);
   const [endorsements, setEndorsements] = useState<EndorsementCount[]>([]);
   const [familiarFaces, setFamiliarFaces] = useState<FamiliarFace[]>([]);
+  const [counts, setCounts] = useState<{ followers: number; following: number }>({ followers: 0, following: 0 });
+  const [hosted, setHosted] = useState<Plan[]>([]);
+  const [joined, setJoined] = useState<Plan[]>([]);
+  const [myRecaps, setMyRecaps] = useState<Recap[]>([]);
 
   const load = useCallback(async () => {
     try {
       const profile = await getMyProfile();
       setMe(profile);
       if (profile) {
-        const [es, ff] = await Promise.all([
+        const author = { id: profile.id, name: profile.name, handle: profile.handle, avatarUri: profile.avatarUri };
+        const [es, ff, c, plans, recaps] = await Promise.all([
           getEndorsementSummary(profile.id),
           getFamiliarFaces(),
+          getMyFollowCounts().catch(() => ({ followers: 0, following: 0 })),
+          getMyPlans().catch(() => []),
+          getUserRecaps(profile.id, author).catch(() => []),
         ]);
         setEndorsements(es);
         setFamiliarFaces(ff);
+        setCounts(c);
+        setHosted(plans.filter((p) => p.isMine));
+        setJoined(plans.filter((p) => !p.isMine));
+        setMyRecaps(recaps);
       }
     } catch { /* keep prior data on transient failure */ }
   }, []);
   useFocusEffect(useCallback(() => { void load(); }, [load]));
-
-  // Plan-history tabs are still mock (Social/history wave — no history RPC).
-  const mockMe = getUserById(CURRENT_USER_ID)!;
-  const hosted = plans.filter((p) => p.hostId === mockMe.id);
-  const joined  = plans.filter((p) => p.joinerIds.includes(mockMe.id));
-  const myRecaps = recaps.filter((r) => r.authorId === mockMe.id);
 
   if (!me) {
     return (
@@ -107,10 +114,10 @@ export function ProfileScreen({ navigation }: Props) {
               <T.Meta style={{ marginTop: spacing.xs / 2 }}>{me.handle} · {me.neighbourhood}</T.Meta>
               <Row gap="md" style={{ marginTop: spacing.sm }}>
                 <Pressable onPress={() => navigation.navigate('FollowList', { userId: me.id, tab: 'followers' })}>
-                  <T.StatNum>142 <T.Meta>Followers</T.Meta></T.StatNum>
+                  <T.StatNum>{counts.followers} <T.Meta>Followers</T.Meta></T.StatNum>
                 </Pressable>
                 <Pressable onPress={() => navigation.navigate('FollowList', { userId: me.id, tab: 'following' })}>
-                  <T.StatNum>38 <T.Meta>Following</T.Meta></T.StatNum>
+                  <T.StatNum>{counts.following} <T.Meta>Following</T.Meta></T.StatNum>
                 </Pressable>
               </Row>
             </Stack>

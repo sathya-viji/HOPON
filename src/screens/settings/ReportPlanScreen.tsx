@@ -1,26 +1,35 @@
 import React from 'react';
 import { View } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import { ReportForm } from './ReportFormScreen';
+import { ReportForm, type ReportReasonOption } from './ReportFormScreen';
 import { Icon } from '@/components/atoms/Icon';
 import { Row } from '@/components/layout/Row';
 import { Stack } from '@/components/layout/Stack';
 import * as T from '@/components/atoms/T';
 import { useTheme } from '@/theme';
 import { spacing, borderWidths, radii, iconSizes, CATEGORIES } from '@/theme/tokens';
-import { plans, getPlanById } from '@/mocks';
+import { usePlanDetail } from '@/api/hooks/usePlanDetail';
+import { submitReport } from '@/api/safety';
 import type { ProfileStackParamList } from '@/navigation/types';
 
 type Props = StackScreenProps<ProfileStackParamList, 'ReportPlan'>;
 
-const REASONS = ['Misleading description', 'Dangerous or unsafe location', 'Spam or fake plan', 'Inappropriate content', 'Other'];
+const REASONS: ReportReasonOption[] = [
+  { label: 'Misleading description', value: 'other' },
+  { label: 'Dangerous or unsafe location', value: 'safety_concern' },
+  { label: 'Spam or fake plan', value: 'spam' },
+  { label: 'Inappropriate content', value: 'inappropriate_content' },
+  { label: 'Other', value: 'other' },
+];
 
 export function ReportPlanScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
-  const plan = getPlanById(route.params?.planId) ?? plans[0];
-  const cat = CATEGORIES.find((c) => c.id === plan.categoryId)!;
+  const planId = route.params.planId;
+  const { detail } = usePlanDetail(planId);
+  const plan = detail?.plan;
+  const cat = plan ? CATEGORIES.find((c) => c.id === plan.categoryId) ?? CATEGORIES[CATEGORIES.length - 1] : null;
 
-  const contextBlock = (
+  const contextBlock = plan && cat ? (
     <Row
       gap="sm"
       style={{ paddingVertical: spacing.md, paddingHorizontal: spacing.lg - 2, borderWidth: borderWidths.thin, borderRadius: radii.sm, marginBottom: spacing.lg, backgroundColor: colors.surface, borderColor: colors.border }}
@@ -33,7 +42,7 @@ export function ReportPlanScreen({ navigation, route }: Props) {
         <T.Meta>{plan.location}</T.Meta>
       </Stack>
     </Row>
-  );
+  ) : null;
 
   return (
     <ReportForm
@@ -42,7 +51,8 @@ export function ReportPlanScreen({ navigation, route }: Props) {
       reasons={REASONS}
       contextBlock={contextBlock}
       onBack={() => navigation.goBack()}
-      onSubmit={() => navigation.goBack()}
+      submit={(reason, notes) => submitReport('plan', planId, reason, notes)}
+      onDone={() => navigation.goBack()}
     />
   );
 }

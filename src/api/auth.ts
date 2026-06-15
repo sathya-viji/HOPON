@@ -108,6 +108,17 @@ export async function deleteAccount(): Promise<void> {
   await supabase.auth.signOut();
 }
 
+/**
+ * Export everything the backend holds about the signed-in user (profile + all
+ * user-owned rows across phases), as a JSON object. Used by the "Download my
+ * data" affordance before account deletion.
+ */
+export async function exportMyData(): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase.rpc('export_my_data');
+  if (error) throw error;
+  return (data ?? {}) as Record<string, unknown>;
+}
+
 export async function getSession() {
   const { data } = await supabase.auth.getSession();
   return data.session;

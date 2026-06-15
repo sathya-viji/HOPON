@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Pressable } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import type { StackScreenProps } from '@react-navigation/stack';
 import { Screen } from '@/components/layout/Screen';
@@ -7,12 +7,10 @@ import { Row } from '@/components/layout/Row';
 import { Stack } from '@/components/layout/Stack';
 import { ScreenPad } from '@/components/layout/ScreenPad';
 import { Spacer } from '@/components/layout/Spacer';
-import { ScrollContent } from '@/components/layout/ScrollContent';
 import { Avatar } from '@/components/atoms/Avatar';
 import { Button } from '@/components/atoms/Button';
 import { Icon } from '@/components/atoms/Icon';
 import { VerifiedBadge } from '@/components/atoms/VerifiedBadge';
-import { FamiliarFaceItem } from '@/components/atoms/FamiliarFaceItem';
 import * as T from '@/components/atoms/T';
 import { TrustGrid } from '@/components/molecules/TrustGrid';
 import { ScreenHeader } from '@/components/molecules/ScreenHeader';
@@ -23,53 +21,168 @@ import { TabBar } from '@/components/molecules/TabBar';
 import { EmptyState } from '@/components/atoms/EmptyState';
 import { useTheme } from '@/theme';
 import { spacing, borderWidths, radii, iconSizes, avatarSizes, HIT_SLOP } from '@/theme/tokens';
-import { users, getUserById, CURRENT_USER_ID, plans, recaps } from '@/mocks';
 import { useToast } from '@/hooks/useToast';
 import { planDetailRoute } from '@/utils/plan';
+import { useFocusResource } from '@/api/hooks/useFocusResource';
+import { getPublicProfile } from '@/api/users';
+import { getUserRecaps } from '@/api/recaps';
+import { getUserHostedPlans } from '@/api/plans';
+import { getFollowState, followUser, unfollow, type FollowState } from '@/api/follows';
+import { getFamiliarFaceWith } from '@/api/trust';
+import { blockUser, unblockUser, isBlocked, submitReport, type ReportReasonValue } from '@/api/safety';
+import { supabase } from '@/api/client';
+import { errorMessage } from '@/api/errors';
+import { timeAgo } from '@/utils/time';
+import type { User, Recap, Plan } from '@/types';
 import type { ProfileStackParamList } from '@/navigation/types';
 
 type Props = StackScreenProps<ProfileStackParamList, 'ProfileOther'>;
 
-const CROSSED: Record<string, { plansTogetherCount: number; lastMet: string }> = {
-  u1: { plansTogetherCount: 3, lastMet: '2d ago' },
-  u3: { plansTogetherCount: 1, lastMet: '1w ago' },
-};
+interface Loaded {
+  profile: User | null;
+  blocked: boolean;
+  followState: FollowState;
+  crossed: { plansTogether: number; lastMetAt: string } | null;
+  recaps: Recap[];
+  hosted: Plan[];
+  myUid: string | null;
+}
+
+const REPORT_REASONS: { label: string; value: ReportReasonValue }[] = [
+  { label: 'Spam', value: 'spam' },
+  { label: 'Harassment', value: 'harassment' },
+  { label: 'Fake profile', value: 'fake_profile' },
+  { label: 'Safety concern', value: 'safety_concern' },
+  { label: 'Other', value: 'other' },
+];
 
 export function ProfileOtherScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
   const toast = useToast();
-  const other = getUserById(route.params.userId) ?? users[1];
-  const me = getUserById(CURRENT_USER_ID)!;
-  const [following, setFollowing] = useState(false);
-  const [blocked, setBlocked] = useState(false);
-  const [blockConfirm, setBlockConfirm] = useState(false);
+  const userId = route.params.userId;
   const [tab, setTab] = useState<'hosted' | 'joined' | 'recaps'>('hosted');
+  const [followBusy, setFollowBusy] = useState(false);
+  const [blockConfirm, setBlockConfirm] = useState(false);
 
-  const crossed = CROSSED[other.id];
-  const hosted = plans.filter((p) => p.hostId === other.id);
-  const joined = plans.filter((p) => p.joinerIds.includes(other.id));
-  const theirRecaps = recaps.filter((r) => r.authorId === other.id);
-  const commonFaces = me.familiarFaceIds
-    .filter((id) => id !== other.id)
-    .slice(0, 3)
-    .map((id) => getUserById(id))
-    .filter(Boolean) as typeof users;
+  const load = useCallback(async (): Promise<Loaded> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const myUid = session?.user?.id ?? null;
+    const blocked = await isBlocked(userId);
+    if (blocked) {
+      return { profile: null, blocked: true, followState: 'none', crossed: null, recaps: [], hosted: [], myUid };
+    }
+    const profile = await getPublicProfile(userId);
+    const [followState, crossed, recaps, hosted] = await Promise.all([
+      getFollowState(userId).catch(() => 'none' as FollowState),
+      getFamiliarFaceWith(userId).catch(() => null),
+      profile ? getUserRecaps(userId, { id: profile.id, name: profile.name, handle: profile.handle, avatarUri: profile.avatarUri }).catch(() => []) : Promise.resolve([]),
+      profile ? getUserHostedPlans(userId).catch(() => []) : Promise.resolve([]),
+    ]);
+    return { profile, blocked: false, followState, crossed, recaps, hosted, myUid };
+  }, [userId]);
+
+  const { data, loading, error, refetch, set } = useFocusResource(load, [userId]);
+
+  const toggleFollow = useCallback(async () => {
+    if (!data?.profile || followBusy) return;
+    setFollowBusy(true);
+    const cur = data.followState;
+    try {
+      if (cur === 'none') {
+        const s = await followUser(userId);
+        set({ ...data, followState: s });
+        toast.show(s === 'pending' ? 'Follow request sent' : 'Following');
+      } else {
+        await unfollow(userId);
+        set({ ...data, followState: 'none' });
+      }
+    } catch (e) {
+      toast.show(errorMessage(e, 'Couldn’t update follow.'));
+    } finally {
+      setFollowBusy(false);
+    }
+  }, [data, followBusy, userId, set, toast]);
+
+  const doBlock = useCallback(async () => {
+    setBlockConfirm(false);
+    try { await blockUser(userId); toast.show('Blocked'); refetch(); }
+    catch (e) { toast.show(errorMessage(e, 'Couldn’t block.')); }
+  }, [userId, refetch, toast]);
+
+  const doUnblock = useCallback(async () => {
+    try { await unblockUser(userId); toast.show('Unblocked'); refetch(); }
+    catch (e) { toast.show(errorMessage(e, 'Couldn’t unblock.')); }
+  }, [userId, refetch, toast]);
+
+  const report = useCallback(() => {
+    Alert.alert('Report this person', 'Why are you reporting them?', [
+      ...REPORT_REASONS.map((r) => ({
+        text: r.label,
+        onPress: async () => {
+          try { await submitReport('user', userId, r.value); toast.show('Thanks — our team will review this.'); }
+          catch (e) { toast.show(errorMessage(e, 'Couldn’t submit report.')); }
+        },
+      })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  }, [userId, toast]);
 
   const header = (
     <ScreenHeader
       onBack={() => navigation.goBack()}
       trailing={
         <>
-          <Pressable onPress={() => setBlockConfirm(true)} hitSlop={HIT_SLOP.sm}>
-            <Icon name="ban" size={iconSizes.md} color={colors.textDim} />
+          <Pressable onPress={() => (data?.blocked ? doUnblock() : setBlockConfirm(true))} hitSlop={HIT_SLOP.sm}>
+            <Icon name="ban" size={iconSizes.md} color={data?.blocked ? colors.coral : colors.textDim} />
           </Pressable>
-          <Pressable onPress={() => navigation.navigate('ReportUser', { userId: other.id })} hitSlop={HIT_SLOP.sm}>
+          <Pressable onPress={report} hitSlop={HIT_SLOP.sm}>
             <Icon name="flag" size={iconSizes.md} color={colors.textDim} />
           </Pressable>
         </>
       }
     />
   );
+
+  if (loading) {
+    return (
+      <Screen header={header} scroll={false}>
+        <Stack style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.coral} />
+        </Stack>
+      </Screen>
+    );
+  }
+
+  // Blocked: profile is hidden by RLS; offer unblock.
+  if (data?.blocked) {
+    return (
+      <Screen header={header} scroll={false}>
+        <EmptyState emoji="🚫" title="You’ve blocked this person" sub="You won’t see their plans, recaps, or profile. Unblock to see them again." cta="Unblock" onCtaPress={doUnblock} />
+      </Screen>
+    );
+  }
+
+  // Gated: profile not visible (private/followers-only & not following, or not found).
+  if (error || !data?.profile) {
+    return (
+      <Screen header={header} scroll={false}>
+        <EmptyState
+          emoji="🔒"
+          title="This profile is private"
+          sub="Send a follow request — once they accept, you’ll see their plans and recaps."
+          cta="Request to follow"
+          onCtaPress={async () => {
+            try { const s = await followUser(userId); toast.show(s === 'pending' ? 'Follow request sent' : 'Following'); }
+            catch (e) { toast.show(errorMessage(e, 'Couldn’t send request.')); }
+          }}
+        />
+      </Screen>
+    );
+  }
+
+  const other = data.profile;
+  const { followState, crossed, recaps, hosted } = data;
+  const isFollowing = followState === 'accepted';
 
   return (
     <View style={{ flex: 1, position: 'relative', backgroundColor: colors.bg }}>
@@ -85,29 +198,17 @@ export function ProfileOtherScreen({ navigation, route }: Props) {
                 <T.Heading>{other.name}</T.Heading>
                 <T.Meta style={{ marginTop: spacing.xs / 2 }}>{other.handle} · {other.neighbourhood}</T.Meta>
                 {other.bio ? <T.Meta color={colors.textSub} style={{ marginTop: 5 }} numberOfLines={2}>{other.bio}</T.Meta> : null}
-                <Row
-                  gap="sm"
-                  style={{ marginTop: spacing.sm + 2 }}
-                >
-                  {blocked ? (
-                    <Pressable
-                      onPress={() => { setBlocked(false); toast.show('Unblocked'); }}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm - 2, paddingHorizontal: spacing.lg - 2, borderWidth: borderWidths.medium, borderRadius: radii.sm, alignSelf: 'flex-start', backgroundColor: colors.cost.sponsoredBg, borderColor: colors.cost.sponsoredFg }}
-                    >
-                      <Icon name="ban" size={iconSizes.xs} color={colors.cost.sponsoredFg} />
-                      <T.LabelMd color={colors.cost.sponsoredFg}>Blocked · Unblock</T.LabelMd>
-                    </Pressable>
-                  ) : (
-                    <Pressable
-                      onPress={() => setFollowing((v) => !v)}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.sm - 2, paddingHorizontal: spacing.lg, borderWidth: borderWidths.medium, borderRadius: radii.sm, alignSelf: 'flex-start', backgroundColor: following ? colors.cost.freeBg : colors.coral, borderColor: following ? colors.cost.freeFg : colors.coral }}
-                    >
-                      {following ? <Icon name="check" size={iconSizes.xxs + 1} color={colors.cost.freeFg} strokeWidth={2.5} /> : null}
-                      <T.LabelMd color={following ? colors.cost.freeFg : colors.white}>
-                        {following ? 'Following' : '+ Follow'}
-                      </T.LabelMd>
-                    </Pressable>
-                  )}
+                <Row gap="sm" style={{ marginTop: spacing.sm + 2 }}>
+                  <Pressable
+                    onPress={toggleFollow}
+                    disabled={followBusy}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.sm - 2, paddingHorizontal: spacing.lg, borderWidth: borderWidths.medium, borderRadius: radii.sm, alignSelf: 'flex-start', opacity: followBusy ? 0.6 : 1, backgroundColor: followState !== 'none' ? colors.cost.freeBg : colors.coral, borderColor: followState !== 'none' ? colors.cost.freeFg : colors.coral }}
+                  >
+                    {isFollowing ? <Icon name="check" size={iconSizes.xxs + 1} color={colors.cost.freeFg} strokeWidth={2.5} /> : null}
+                    <T.LabelMd color={followState !== 'none' ? colors.cost.freeFg : colors.white}>
+                      {isFollowing ? 'Following' : followState === 'pending' ? 'Requested' : '+ Follow'}
+                    </T.LabelMd>
+                  </Pressable>
                 </Row>
               </Stack>
             </Row>
@@ -120,8 +221,8 @@ export function ProfileOtherScreen({ navigation, route }: Props) {
               <Row gap="sm" style={{ padding: spacing.md, borderRadius: radii.sm, marginVertical: spacing.lg, backgroundColor: colors.cost.freeBg }}>
                 <Icon name="users" size={iconSizes.sm} color={colors.green} />
                 <Stack gap={1}>
-                  <T.LabelMd color={colors.cost.freeFg}>{crossed.plansTogetherCount} plans together</T.LabelMd>
-                  <T.Meta color={colors.cost.freeFg}>Last met {crossed.lastMet}</T.Meta>
+                  <T.LabelMd color={colors.cost.freeFg}>{crossed.plansTogether} {crossed.plansTogether === 1 ? 'plan' : 'plans'} together</T.LabelMd>
+                  <T.Meta color={colors.cost.freeFg}>Last met {timeAgo(crossed.lastMetAt)}</T.Meta>
                 </Stack>
               </Row>
             </ScreenPad>
@@ -129,24 +230,11 @@ export function ProfileOtherScreen({ navigation, route }: Props) {
 
           {other.socialLinks ? <SocialLinks links={other.socialLinks} /> : null}
 
-          {commonFaces.length > 0 ? (
-            <View style={{ paddingTop: spacing.lg, paddingBottom: spacing.xs, borderTopWidth: borderWidths.thin, borderTopColor: colors.border }}>
-              <ScreenPad style={{ marginBottom: spacing.md }}>
-                <T.CapsSm>Familiar Faces</T.CapsSm>
-              </ScreenPad>
-              <ScrollContent horizontal gap={spacing.lg - 2}>
-                {commonFaces.map((face) => (
-                  <FamiliarFaceItem key={face.id} uri={face.avatarUri} name={face.name} onPress={() => navigation.navigate('ProfileOther', { userId: face.id })} />
-                ))}
-              </ScrollContent>
-            </View>
-          ) : null}
-
           <TabBar
             tabs={[
-              { id: 'hosted',  label: `Hosted · ${hosted.length}` },
-              { id: 'joined',  label: `Joined · ${joined.length}` },
-              { id: 'recaps',  label: `Recaps · ${theirRecaps.length}` },
+              { id: 'hosted', label: `Hosted · ${hosted.length}` },
+              { id: 'joined', label: 'Joined' },
+              { id: 'recaps', label: `Recaps · ${recaps.length}` },
             ]}
             active={tab}
             onSelect={(id) => setTab(id as typeof tab)}
@@ -157,13 +245,11 @@ export function ProfileOtherScreen({ navigation, route }: Props) {
               ? <EmptyState emoji="📋" title="Nothing yet" sub={`Plans ${other.name.split(' ')[0]} hosts show up here.`} />
               : hosted.map((p) => <PlanHistoryRow key={p.id} plan={p} onPress={() => navigation.navigate(planDetailRoute(p), { planId: p.id })} />)
           ) : tab === 'joined' ? (
-            joined.length === 0
-              ? <EmptyState emoji="📋" title="Nothing yet" sub={`Plans ${other.name.split(' ')[0]} joins show up here.`} />
-              : joined.map((p) => <PlanHistoryRow key={p.id} plan={p} onPress={() => navigation.navigate(planDetailRoute(p), { planId: p.id })} />)
+            <EmptyState emoji="🔒" title="Joined plans are private" sub="Only plans someone hosts are shown on their profile." />
           ) : (
-            theirRecaps.length === 0
+            recaps.length === 0
               ? <EmptyState emoji="📸" title="No recaps yet" sub={`${other.name.split(' ')[0]} hasn't posted any recaps.`} />
-              : theirRecaps.map((r) => <RecapCard key={r.id} recap={r} onPress={() => navigation.navigate('RecapDetail', { recapId: r.id })} />)
+              : recaps.map((r) => <RecapCard key={r.id} recap={r} onPress={() => navigation.navigate('RecapDetail', { recapId: r.id })} />)
           )}
           <Spacer size="xxxl" />
         </ScrollView>
@@ -181,10 +267,7 @@ export function ProfileOtherScreen({ navigation, route }: Props) {
               </T.BodyMd>
             </Stack>
             <Stack gap="sm">
-              <Pressable
-                onPress={() => { setBlocked(true); setBlockConfirm(false); toast.show(`${other.name.split(' ')[0]} blocked`); }}
-                style={{ borderRadius: radii.xxl, paddingVertical: spacing.lg - 1, alignItems: 'center', backgroundColor: colors.cost.sponsoredFg }}
-              >
+              <Pressable onPress={doBlock} style={{ borderRadius: radii.xxl, paddingVertical: spacing.lg - 1, alignItems: 'center', backgroundColor: colors.cost.sponsoredFg }}>
                 <T.LabelLg color={colors.white}>Block {other.name}</T.LabelLg>
               </Pressable>
               <Button variant="secondary" label="Cancel" onPress={() => setBlockConfirm(false)} />

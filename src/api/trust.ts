@@ -74,6 +74,28 @@ export async function getPlanAttendees(planId: string): Promise<PlanAttendee[]> 
   }));
 }
 
+/**
+ * The signed-in viewer's shared-plan history with one other user (for the
+ * ProfileOther "N plans together" banner), or null if they've never been
+ * resolved-present at the same plan. Reads own familiar_faces rows (RLS-scoped).
+ */
+export async function getFamiliarFaceWith(
+  userId: string,
+): Promise<{ plansTogether: number; lastMetAt: string } | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const uid = session?.user?.id;
+  if (!uid) return null;
+  const { data, error } = await supabase
+    .from('familiar_faces')
+    .select('user_a_id,user_b_id,plans_together,last_met_at')
+    .or(`and(user_a_id.eq.${uid},user_b_id.eq.${userId}),and(user_a_id.eq.${userId},user_b_id.eq.${uid})`)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const r = data as FamiliarFaceRow;
+  return { plansTogether: r.plans_together, lastMetAt: r.last_met_at };
+}
+
 /** Top-5 endorsement tags + counts for a user (DB-aggregated). */
 export async function getEndorsementSummary(userId: string): Promise<EndorsementCount[]> {
   const { data, error } = await supabase.rpc('get_endorsement_summary', { p_user_id: userId });

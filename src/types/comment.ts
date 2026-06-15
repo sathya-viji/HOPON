@@ -13,4 +13,6 @@ export interface Comment {
   body: string;
   parentId: string | null;
   createdAt: string;
+  /** True once the author soft-deletes it (body becomes '[deleted]'). */
+  isDeleted?: boolean;
 }

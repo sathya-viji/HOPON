@@ -19,7 +19,9 @@ interface RecapCardProps {
 
 export function RecapCard({ recap, onPress }: RecapCardProps) {
   const { colors } = useTheme();
-  const author = getUserById(recap.authorId);
+  // Prefer the author embedded by the backend feed; fall back to the mock
+  // lookup for any remaining mock-driven callers.
+  const author = recap.author ?? getUserById(recap.authorId);
   return (
     <Pressable onPress={onPress} style={{ borderBottomWidth: borderWidths.thin, borderBottomColor: colors.border, paddingBottom: spacing.sm + 2 }}>
       <Image source={{ uri: recap.imageUri }} style={{ width: '100%', aspectRatio: 4 / 5 }} contentFit="cover" />

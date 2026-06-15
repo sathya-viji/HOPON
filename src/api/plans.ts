@@ -239,3 +239,84 @@ export async function getPlanMembers(planId: string): Promise<PlanMemberSummary[
     status: m.status,
   }));
 }
+
+// ─── My plans (for the recap / story pickers + own profile history) ─────────
+
+/** A full plan view-model + `started` (has the start time passed?). */
+export type MyPlanItem = Plan & { started: boolean };
+
+/**
+ * Plans the signed-in user hosts or is an active member of, soonest-started
+ * first. `plan.isMine` distinguishes hosted from joined.
+ *
+ * ⚠️ KNOWN BACKEND GAP (Wave 5): there is NO server read-path for "a user's
+ * plans". Direct selects on `plans` / `plan_members` fail for `authenticated`
+ * with 42501 "permission denied for table users" — the plans_select RLS policy's
+ * subquery touches `users.deleted_at` / `users.account_status`, columns not in
+ * the column-level GRANT (the users-column-privilege cascade). All plan reads
+ * are designed to go through SECURITY DEFINER RPCs (get_home_feed / search_plans
+ * / get_plan_detail), none of which return "my plans" (the feed is geo +
+ * active+future only). So this throws today and callers fall back to empty.
+ *
+ * FIX (needs backend approval — a new migration, hence flagged not done):
+ * add a SECURITY DEFINER `get_my_plans()` RPC (mirrors get_plan_attendees'
+ * pattern) returning the caller's hosted + member plans. Once it exists, swap
+ * the body to a single `supabase.rpc('get_my_plans')` call.
+ */
+export async function getMyPlans(): Promise<MyPlanItem[]> {
+  const uid = await viewerId();
+  if (!uid) return [];
+
+  const { data: memberRows, error: mErr } = await supabase
+    .from('plan_members')
+    .select('plan_id')
+    .eq('user_id', uid);
+  if (mErr) throw mErr; // 42501 today — see gap note above
+  const memberPlanIds = (memberRows ?? []).map((r) => (r as { plan_id: string }).plan_id);
+
+  const [hostedRes, memberRes] = await Promise.all([
+    supabase.from('plans').select('*').eq('host_id', uid),
+    memberPlanIds.length
+      ? supabase.from('plans').select('*').in('id', memberPlanIds)
+      : Promise.resolve({ data: [] as FeedItem['plan'][], error: null }),
+  ]);
+  if (hostedRes.error) throw hostedRes.error;
+  if (memberRes.error) throw memberRes.error;
+
+  const byId = new Map<string, FeedItem['plan']>();
+  for (const p of [...(hostedRes.data ?? []), ...(memberRes.data ?? [])] as FeedItem['plan'][]) {
+    byId.set(p.id, p);
+  }
+
+  const now = Date.now();
+  return Array.from(byId.values())
+    .map((p) => {
+      const plan = mapFeedItemToPlan({ plan: p, host: null, joiners: [] }, uid);
+      return { ...plan, started: new Date(plan.startsAt).getTime() <= now };
+    })
+    .sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime());
+}
+
+/**
+ * Plans hosted by a given user, newest first — for the ProfileOther "Hosted"
+ * tab.
+ *
+ * ⚠️ Same KNOWN BACKEND GAP as getMyPlans: a direct `plans` select fails for
+ * `authenticated` with 42501 (users-column-privilege cascade), so this throws
+ * today and the tab falls back to empty. Needs a SECURITY DEFINER
+ * `get_user_plans(p_user_id)` RPC (flagged, not done — new migration).
+ * (Another user's JOINED plans are not exposable at all — plan_members RLS only
+ * covers the viewer's own membership.)
+ */
+export async function getUserHostedPlans(userId: string): Promise<Plan[]> {
+  const uid = await viewerId();
+  const { data, error } = await supabase
+    .from('plans')
+    .select('*')
+    .eq('host_id', userId)
+    .order('starts_at', { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as FeedItem['plan'][]).map((p) =>
+    mapFeedItemToPlan({ plan: p, host: null, joiners: [] }, uid),
+  );
+}
