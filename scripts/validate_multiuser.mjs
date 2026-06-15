@@ -282,6 +282,19 @@ async function main() {
     'contacts-match returns a seeded contact (Priya) for the hashed +E.164', 'High', `status ${cmRes.status}`);
   ok(Array.isArray(cm.matches) && !cm.matches.some((m) => m.id === U.you), 'contacts-match excludes the caller', 'Medium');
 
+  // ───────────────── Growth (invites + feature flags, Wave 7) ─────────────────
+  section('12. Growth — invites + feature flags');
+  db(`delete from invites where inviter_id='${U.you}'; delete from feature_flags;`);
+  // create_invites: priya (+919999999993) is a member → excluded; the other isn't → invited
+  const ci = await rpc('you', 'create_invites', { p_phone_hashes: [sha('+919999999993'), sha('+910000000123')] });
+  ok(ci.status === 200 && ci.json === 1, 'create_invites excludes existing users (1 of 2 hashes invited)', 'High', `count=${ci.json}`);
+  ok(db(`select count(*) from invites where inviter_id='${U.you}' and status='pending'`) === '1', 'pending invite row created');
+  ok((await rpc('you', 'is_feature_enabled', { p_flag: 'unknown_flag' })).json === false, 'unknown feature flag disabled by default', 'High');
+  db(`insert into feature_flags(flag_name,enabled,rollout_pct) values ('gate_on',true,100);`);
+  ok((await rpc('you', 'is_feature_enabled', { p_flag: 'gate_on' })).json === true, 'enabled flag (100% rollout) returns true', 'High');
+  db(`insert into feature_flags(flag_name,enabled,rollout_pct) values ('gate_off',false,100);`);
+  ok((await rpc('you', 'is_feature_enabled', { p_flag: 'gate_off' })).json === false, 'disabled flag returns false');
+
   // ───────────────── SUMMARY ─────────────────
   console.log(`\n──────────── SUMMARY ────────────`);
   console.log(`PASS: ${pass}   FAIL: ${issues.length}`);

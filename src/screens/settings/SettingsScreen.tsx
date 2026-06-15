@@ -18,6 +18,8 @@ import { spacing, borderWidths, iconSizes, avatarSizes } from '@/theme/tokens';
 import { useToast } from '@/hooks/useToast';
 import { signOut } from '@/api/auth';
 import { getMyProfile } from '@/api/users';
+import { inviteContacts, getInviteStats, type InviteStats } from '@/api/growth';
+import { errorMessage } from '@/api/errors';
 import { useAuth } from '@/state/AuthContext';
 import type { User } from '@/types';
 import type { ProfileStackParamList } from '@/navigation/types';
@@ -37,11 +39,31 @@ export function SettingsScreen({ navigation }: Props) {
   const toast = useToast();
   const { refresh } = useAuth();
   const [me, setMe] = useState<User | null>(null);
+  const [invites, setInvites] = useState<InviteStats>({ pending: 0, converted: 0 });
+  const [inviting, setInviting] = useState(false);
   useFocusEffect(useCallback(() => {
     let cancelled = false;
     getMyProfile().then((p) => { if (!cancelled) setMe(p); }).catch(() => {});
+    getInviteStats().then((s) => { if (!cancelled) setInvites(s); }).catch(() => {});
     return () => { cancelled = true; };
   }, []));
+
+  const onInvite = async () => {
+    if (inviting) return;
+    setInviting(true);
+    try {
+      const res = await inviteContacts();
+      if (res.status === 'sent') toast.show(res.count > 0 ? `Invited ${res.count} ${res.count === 1 ? 'friend' : 'friends'} to hopon 🎉` : 'All your contacts are already on hopon!');
+      else if (res.status === 'denied') toast.show('Contact access denied — enable it in Settings to invite friends');
+      else if (res.status === 'no_contacts') toast.show('No contacts found to invite');
+      else toast.show('Couldn’t send invites. Try again.');
+      getInviteStats().then(setInvites).catch(() => {});
+    } catch (e) {
+      toast.show(errorMessage(e, 'Couldn’t send invites.'));
+    } finally {
+      setInviting(false);
+    }
+  };
 
   const onLogout = async () => {
     await signOut();        // clears the session
@@ -83,6 +105,14 @@ export function SettingsScreen({ navigation }: Props) {
         <SettingsRow icon="user" label="Edit profile" onPress={() => navigation.navigate('ProfileEdit')} />
         <SettingsRow icon="bell" label="Notifications" sub="All on" onPress={() => navigation.navigate('SettingsNotifications')} />
         <SettingsRow icon="shield-check" label="Privacy" sub="Public profile" onPress={() => navigation.navigate('SettingsPrivacy')} />
+
+        <SectionLabel label="GROW" />
+        <SettingsRow
+          icon="users"
+          label={inviting ? 'Inviting…' : 'Invite friends'}
+          sub={invites.converted > 0 ? `${invites.converted} joined · ${invites.pending} pending` : 'Bring your friends to hopon'}
+          onPress={onInvite}
+        />
 
         <SectionLabel label="COMMUNITY" />
         <SettingsRow icon="book-open" label="Community guidelines" onPress={() => navigation.navigate('Guidelines')} />

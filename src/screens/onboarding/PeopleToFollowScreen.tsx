@@ -9,7 +9,9 @@ import { Icon } from '@/components/atoms/Icon';
 import { useTheme } from '@/theme';
 import { spacing, fontFamilies, radii } from '@/theme/tokens';
 import { matchContacts, type ContactSyncStatus } from '@/api/contacts';
+import { inviteContacts } from '@/api/growth';
 import { followUser, type FollowState } from '@/api/follows';
+import { useToast } from '@/hooks/useToast';
 import type { User } from '@/types';
 import type { OnboardingStackParamList } from '@/navigation/types';
 
@@ -17,7 +19,19 @@ type Props = StackScreenProps<OnboardingStackParamList, 'PeopleToFollow'>;
 
 export function PeopleToFollowScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
+  const toast = useToast();
   const sync = route.params?.sync ?? false;
+  const [inviting, setInviting] = useState(false);
+
+  const onInvite = async () => {
+    if (inviting) return;
+    setInviting(true);
+    const res = await inviteContacts();
+    if (res.status === 'sent') toast.show(res.count > 0 ? `Invited ${res.count} ${res.count === 1 ? 'friend' : 'friends'} to hopon 🎉` : 'Your contacts are already on hopon!');
+    else if (res.status === 'denied') toast.show('Contact access needed to invite friends');
+    else toast.show('Couldn’t send invites right now');
+    setInviting(false);
+  };
 
   const [loading, setLoading] = useState(sync);
   const [status, setStatus] = useState<ContactSyncStatus | 'skip'>(sync ? 'matched' : 'skip');
@@ -61,6 +75,9 @@ export function PeopleToFollowScreen({ navigation, route }: Props) {
 
   const footer = (
     <View style={{ padding: spacing.md, paddingHorizontal: spacing.screenPx, paddingBottom: 32, borderTopWidth: 1, gap: 8, backgroundColor: colors.bg, borderTopColor: colors.border }}>
+      {sync ? (
+        <Button variant="secondary" label={inviting ? 'Inviting…' : 'Invite friends not on hopon'} leadingIcon="users" onPress={onInvite} />
+      ) : null}
       <Button variant="primary-coral" label="Continue" onPress={() => navigation.navigate('Neighbourhood')} />
       <Pressable onPress={() => navigation.navigate('Neighbourhood')} style={{ alignSelf: 'center', padding: spacing.xs }} hitSlop={8}>
         <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 13, color: colors.textSub }}>Skip</Text>
