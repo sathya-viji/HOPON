@@ -247,54 +247,24 @@ export type MyPlanItem = Plan & { started: boolean };
 
 /**
  * Plans the signed-in user hosts or is an active member of, soonest-started
- * first. `plan.isMine` distinguishes hosted from joined.
+ * first. `plan.isMine` distinguishes hosted from joined. Used by RecapPost
+ * (which requires a started plan), CreateStory's link picker, and the own-profile
+ * Hosted/Joined tabs.
  *
- * ⚠️ KNOWN BACKEND GAP (Wave 5): there is NO server read-path for "a user's
- * plans". Direct selects on `plans` / `plan_members` fail for `authenticated`
- * with 42501 "permission denied for table users" — the plans_select RLS policy's
- * subquery touches `users.deleted_at` / `users.account_status`, columns not in
- * the column-level GRANT (the users-column-privilege cascade). All plan reads
- * are designed to go through SECURITY DEFINER RPCs (get_home_feed / search_plans
- * / get_plan_detail), none of which return "my plans" (the feed is geo +
- * active+future only). So this throws today and callers fall back to empty.
- *
- * FIX (needs backend approval — a new migration, hence flagged not done):
- * add a SECURITY DEFINER `get_my_plans()` RPC (mirrors get_plan_attendees'
- * pattern) returning the caller's hosted + member plans. Once it exists, swap
- * the body to a single `supabase.rpc('get_my_plans')` call.
+ * Reads the SECURITY DEFINER `get_my_plans()` RPC (migration 0014u) — direct
+ * `plans` / `plan_members` selects can't be used from the client (they fail with
+ * 42501 via the users-column-privilege cascade in plans_select), so all plan
+ * reads go through definer RPCs.
  */
 export async function getMyPlans(): Promise<MyPlanItem[]> {
   const uid = await viewerId();
-  if (!uid) return [];
-
-  const { data: memberRows, error: mErr } = await supabase
-    .from('plan_members')
-    .select('plan_id')
-    .eq('user_id', uid);
-  if (mErr) throw mErr; // 42501 today — see gap note above
-  const memberPlanIds = (memberRows ?? []).map((r) => (r as { plan_id: string }).plan_id);
-
-  const [hostedRes, memberRes] = await Promise.all([
-    supabase.from('plans').select('*').eq('host_id', uid),
-    memberPlanIds.length
-      ? supabase.from('plans').select('*').in('id', memberPlanIds)
-      : Promise.resolve({ data: [] as FeedItem['plan'][], error: null }),
-  ]);
-  if (hostedRes.error) throw hostedRes.error;
-  if (memberRes.error) throw memberRes.error;
-
-  const byId = new Map<string, FeedItem['plan']>();
-  for (const p of [...(hostedRes.data ?? []), ...(memberRes.data ?? [])] as FeedItem['plan'][]) {
-    byId.set(p.id, p);
-  }
-
+  const { data, error } = await supabase.rpc('get_my_plans');
+  if (error) throw error;
   const now = Date.now();
-  return Array.from(byId.values())
-    .map((p) => {
-      const plan = mapFeedItemToPlan({ plan: p, host: null, joiners: [] }, uid);
-      return { ...plan, started: new Date(plan.startsAt).getTime() <= now };
-    })
-    .sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime());
+  return ((data ?? []) as FeedItem['plan'][]).map((p) => {
+    const plan = mapFeedItemToPlan({ plan: p, host: null, joiners: [] }, uid);
+    return { ...plan, started: new Date(plan.startsAt).getTime() <= now };
+  });
 }
 
 /**
