@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { ScrollView, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import { Pressable } from 'react-native';
 import { Screen } from '@/components/layout/Screen';
@@ -14,10 +15,11 @@ import { SettingsRow } from '@/components/molecules/SettingsRow';
 import * as T from '@/components/atoms/T';
 import { useTheme } from '@/theme';
 import { spacing, borderWidths, iconSizes, avatarSizes } from '@/theme/tokens';
-import { getUserById, CURRENT_USER_ID } from '@/mocks';
 import { useToast } from '@/hooks/useToast';
 import { signOut } from '@/api/auth';
+import { getMyProfile } from '@/api/users';
 import { useAuth } from '@/state/AuthContext';
+import type { User } from '@/types';
 import type { ProfileStackParamList } from '@/navigation/types';
 
 type Props = StackScreenProps<ProfileStackParamList, 'Settings'>;
@@ -34,7 +36,12 @@ export function SettingsScreen({ navigation }: Props) {
   const { colors, mode, toggleMode } = useTheme();
   const toast = useToast();
   const { refresh } = useAuth();
-  const me = getUserById(CURRENT_USER_ID)!;
+  const [me, setMe] = useState<User | null>(null);
+  useFocusEffect(useCallback(() => {
+    let cancelled = false;
+    getMyProfile().then((p) => { if (!cancelled) setMe(p); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []));
 
   const onLogout = async () => {
     await signOut();        // clears the session
@@ -51,10 +58,10 @@ export function SettingsScreen({ navigation }: Props) {
         >
           <ScreenPad>
             <Row gap="lg" style={{ paddingVertical: spacing.lg }}>
-              <Avatar uri={me.avatarUri} name={me.name} size={avatarSizes.md} shape="rounded" />
+              <Avatar uri={me?.avatarUri} name={me?.name ?? '…'} size={avatarSizes.md} shape="rounded" />
               <View style={{ flex: 1 }}>
-                <T.LabelLg>{me.name}</T.LabelLg>
-                <T.Meta style={{ marginTop: 2 }}>{me.handle} · {me.neighbourhood}</T.Meta>
+                <T.LabelLg>{me?.name ?? 'Your profile'}</T.LabelLg>
+                <T.Meta style={{ marginTop: 2 }}>{me ? `${me.handle} · ${me.neighbourhood}` : 'View and edit your profile'}</T.Meta>
               </View>
               <Icon name="chevron-right" size={iconSizes.sm} color={colors.textDim} />
             </Row>
@@ -70,7 +77,7 @@ export function SettingsScreen({ navigation }: Props) {
         />
 
         <SectionLabel label="LOCATION" />
-        <SettingsRow icon="map-pin" label="Neighbourhood" sub={me.neighbourhood} onPress={() => navigation.navigate('SettingsNeighbourhood')} />
+        <SettingsRow icon="map-pin" label="Neighbourhood" sub={me?.neighbourhood ?? ''} onPress={() => navigation.navigate('SettingsNeighbourhood')} />
 
         <SectionLabel label="ACCOUNT" />
         <SettingsRow icon="user" label="Edit profile" onPress={() => navigation.navigate('ProfileEdit')} />

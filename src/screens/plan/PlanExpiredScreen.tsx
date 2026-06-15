@@ -10,15 +10,16 @@ import { IconBox } from '@/components/atoms/IconBox';
 import * as T from '@/components/atoms/T';
 import { useTheme } from '@/theme';
 import { spacing, radii, iconSizes, CATEGORIES } from '@/theme/tokens';
-import { plans, getPlanById } from '@/mocks';
+import { usePlanDetail } from '@/api/hooks/usePlanDetail';
 import type { HomeStackParamList } from '@/navigation/types';
 
 type Props = StackScreenProps<HomeStackParamList, 'PlanExpired'>;
 
 export function PlanExpiredScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
-  const plan = getPlanById(route.params?.planId) ?? plans[8];
-  const cat = CATEGORIES.find((c) => c.id === plan.categoryId) ?? CATEGORIES[CATEGORIES.length - 1];
+  const { detail } = usePlanDetail(route.params?.planId);
+  const plan = detail?.plan;
+  const cat = CATEGORIES.find((c) => c.id === plan?.categoryId) ?? CATEGORIES[CATEGORIES.length - 1];
 
   const header = (
     <ScreenPad>
@@ -34,8 +35,8 @@ export function PlanExpiredScreen({ navigation, route }: Props) {
         <IconBox size={64} radius={20} backgroundColor={cat.bg} style={{ marginBottom: spacing.md }}>
           <Icon name={cat.icon as never} size={28} color={cat.iconColor} strokeWidth={2} />
         </IconBox>
-        <T.Subheading style={{ marginBottom: spacing.xs, textAlign: 'center' }}>{plan.activity}</T.Subheading>
-        <T.Meta style={{ marginBottom: spacing.sm }}>{plan.location}</T.Meta>
+        <T.Subheading style={{ marginBottom: spacing.xs, textAlign: 'center' }}>{plan?.activity ?? 'This plan'}</T.Subheading>
+        <T.Meta style={{ marginBottom: spacing.sm }}>{plan?.location ?? ''}</T.Meta>
         <Row gap="sm" style={{ paddingVertical: spacing.xs, paddingHorizontal: spacing.lg - 2, borderRadius: radii.full, marginBottom: spacing.xxxl, backgroundColor: colors.surface }}>
           <Icon name="clock" size={iconSizes.xxs + 3} color={colors.textDim} />
           <T.Semibold color={colors.textDim}>This plan has passed</T.Semibold>
