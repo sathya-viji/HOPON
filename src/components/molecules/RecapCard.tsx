@@ -20,21 +20,26 @@ interface RecapCardProps {
 export function RecapCard({ recap, onPress }: RecapCardProps) {
   const { colors } = useTheme();
   // Prefer the author embedded by the backend feed; fall back to the mock
-  // lookup for any remaining mock-driven callers.
+  // lookup for any remaining mock-driven callers. When the author isn't
+  // resolvable (e.g. a followers-only author shown to a non-follower — recaps
+  // are neighbourhood-public), render a graceful "Member" placeholder instead of
+  // a blank card.
   const author = recap.author ?? getUserById(recap.authorId);
+  const name = author?.name ?? 'Member';
+  const handle = author?.handle ? `@${author.handle.replace('@', '')} · ` : '';
   return (
     <Pressable onPress={onPress} style={{ borderBottomWidth: borderWidths.thin, borderBottomColor: colors.border, paddingBottom: spacing.sm + 2 }}>
       <Image source={{ uri: recap.imageUri }} style={{ width: '100%', aspectRatio: 4 / 5 }} contentFit="cover" />
       <Stack gap="sm" style={{ paddingHorizontal: spacing.screenPx, paddingTop: spacing.md - 2 }}>
         <Row gap="sm">
-          <Avatar uri={author?.avatarUri} name={author?.name} size={32} shape="circle" />
+          <Avatar uri={author?.avatarUri} name={name} size={32} shape="circle" />
           <Stack style={{ flex: 1 }}>
-            <T.LabelMd numberOfLines={1}>{author?.name}</T.LabelMd>
-            <T.MetaXs numberOfLines={1}>@{author?.handle.replace('@', '')} · {timeAgo(recap.createdAt)}</T.MetaXs>
+            <T.LabelMd numberOfLines={1}>{name}</T.LabelMd>
+            <T.MetaXs numberOfLines={1}>{handle}{timeAgo(recap.createdAt)}</T.MetaXs>
           </Stack>
         </Row>
         {recap.caption ? (
-          <T.BodyLg numberOfLines={3}><T.Bold>{author?.name}</T.Bold> {recap.caption}</T.BodyLg>
+          <T.BodyLg numberOfLines={3}><T.Bold>{name}</T.Bold> {recap.caption}</T.BodyLg>
         ) : null}
         <Row gap="lg" style={{ marginTop: spacing.xs }}>
           <Row gap="sm">

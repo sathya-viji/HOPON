@@ -11,6 +11,16 @@ simulator. New tooling: `scripts/validate_multiuser.mjs`.
 
 ---
 
+## Decisions (2026-06-15, Sathya)
+- **H1 — keep current behaviour:** recaps remain **neighbourhood-public** (not
+  follower-gated). Applied the safe UI fix only — `RecapCard` now renders a
+  graceful **"Member"** placeholder when the author isn't resolvable (followers-only
+  author shown to a non-follower), instead of a blank card. No backend/RLS change.
+- **M1 — keep current behaviour:** suspended profiles remain visible in
+  `users_public` (only `banned` excluded). Accepted as intended; no change.
+
+Both resolved → proceeding to the next wave.
+
 ## A. Executive summary
 
 The system is **solid and launch-ready for Waves 1–5.1**, with **one privacy
