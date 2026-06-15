@@ -23,6 +23,7 @@ import { useAuth } from '@/state/AuthContext';
 import type { RootStackParamList } from './types';
 import { OnboardingNavigator } from './OnboardingNavigator';
 import { MainNavigator } from './MainNavigator';
+import { SuspensionBanner } from '@/components/molecules/SuspensionBanner';
 
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
@@ -41,6 +42,7 @@ export function RootNavigator() {
   }
 
   return (
+    <View style={{ flex: 1 }}>
     <NavigationContainer
       ref={navigationRef}
       theme={{
@@ -69,5 +71,8 @@ export function RootNavigator() {
         )}
       </Stack.Navigator>
     </NavigationContainer>
+    {/* Global read-only banner when the signed-in account is suspended. */}
+    {status === 'ready' ? <SuspensionBanner /> : null}
+    </View>
   );
 }

@@ -9,6 +9,7 @@
  * The frontend collects 10 local digits; we prefix +91 (India launch market).
  */
 import { supabase } from './client';
+import { setSuspended } from '@/state/suspension';
 
 const DIAL_CODE = '+91';
 
@@ -98,6 +99,7 @@ export async function setInterests(interests: string[]): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
+  setSuspended(false); // clear any reactive suspension banner
   await supabase.auth.signOut();
 }
 

@@ -13,9 +13,16 @@ import { AvatarStack } from '@/components/molecules/AvatarStack';
 import * as T from '@/components/atoms/T';
 import { useTheme } from '@/theme';
 import { spacing, radii, borderWidths, iconSizes } from '@/theme/tokens';
-import { AVATARS } from '@/mocks';
 import { useToast } from '@/hooks/useToast';
 import type { ProfileStackParamList } from '@/navigation/types';
+
+// Decorative "people you could meet" illustration for the empty/incomplete
+// profile prompt — not real user data, so inlined here (no mock dependency).
+const DECOR_AVATARS = [
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&q=80',
+  'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=150&q=80',
+  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&q=80',
+];
 
 type Props = StackScreenProps<ProfileStackParamList, 'ProfileIncomplete'>;
 
@@ -58,7 +65,7 @@ export function ProfileIncompleteScreen({ navigation }: Props) {
           Profiles with photos get <T.Bold>3× more join requests.</T.Bold> People want to see who's coming.
         </T.BodyLg>
         <Row gap="sm" style={{ marginBottom: spacing.xxxl }}>
-          <AvatarStack uris={[AVATARS.av2, AVATARS.av3, AVATARS.av4]} max={3} size={28} borderColor={colors.bg} />
+          <AvatarStack uris={DECOR_AVATARS} max={3} size={28} borderColor={colors.bg} />
           <T.Meta>+142 others have a photo</T.Meta>
         </Row>
         <Stack gap="sm" style={{ width: '100%' }}>

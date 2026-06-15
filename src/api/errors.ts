@@ -5,6 +5,8 @@
  * the code as the PostgrestError `message`. This module turns that code into copy
  * the UI can toast, so screens never hand-write backend error strings.
  */
+import { setSuspended } from '@/state/suspension';
+
 export type ApiErrorCode =
   | 'not_authenticated'
   | 'account_suspended'
@@ -91,8 +93,12 @@ export function errorCode(err: unknown): ApiErrorCode | null {
   return trimmed in MESSAGES ? trimmed : null;
 }
 
-/** User-facing message for any thrown error (falls back to a generic line). */
+/** User-facing message for any thrown error (falls back to a generic line).
+ *  Side-effect: flips the global suspension banner when the backend reports the
+ *  caller's account is suspended (the only signal the client gets — account_status
+ *  isn't readable directly). */
 export function errorMessage(err: unknown, fallback = 'Something went wrong. Try again.'): string {
   const code = errorCode(err);
+  if (code === 'account_suspended') setSuspended(true);
   return code ? MESSAGES[code] : fallback;
 }
