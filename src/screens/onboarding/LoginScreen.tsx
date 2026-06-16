@@ -76,8 +76,31 @@ export function LoginScreen({ navigation }: Props) {
     }
   };
 
+  const footer = (
+    <View style={{ padding: spacing.md, paddingHorizontal: spacing.screenPx, paddingBottom: 32, borderTopWidth: 1, backgroundColor: colors.bg, borderTopColor: colors.border }}>
+      {step === 1 ? (
+        <>
+          <Button variant="primary-coral" label={sending ? 'Sending…' : 'Send code'} onPress={onSendCode} disabled={sending} />
+          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: spacing.md }}>
+            <Text style={{ fontFamily: fontFamilies.regular, fontSize: 13, color: colors.textSub }}>New to hopon? </Text>
+            <Pressable onPress={() => navigation.navigate('SignupPhone')} hitSlop={8} accessibilityRole="link" accessibilityLabel="Create account">
+              <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 13, color: colors.coral }}>Create account</Text>
+            </Pressable>
+          </View>
+        </>
+      ) : (
+        <>
+          <Button variant="primary-coral" label={verifying ? 'Verifying…' : 'Verify & sign in'} onPress={() => onVerify()} disabled={verifying} />
+          <Pressable onPress={() => setStep(1)} style={{ alignSelf: 'center', marginTop: spacing.md, padding: spacing.xs }} hitSlop={8} accessibilityRole="link" accessibilityLabel="Change number">
+            <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 13, color: colors.coral }}>← Change number</Text>
+          </Pressable>
+        </>
+      )}
+    </View>
+  );
+
   return (
-    <Screen header={header}>
+    <Screen header={header} footer={footer} keyboardAware={false}>
       <View style={{ flex: 1, paddingHorizontal: spacing.screenPx, paddingTop: 32, paddingBottom: 40 }}>
         <View style={{ marginBottom: 32 }}>
           <Text style={{ fontFamily: fontFamilies.black, fontSize: 26, letterSpacing: -0.025 * 26, marginBottom: 8, color: colors.text }}>
@@ -94,31 +117,14 @@ export function LoginScreen({ navigation }: Props) {
         </View>
 
         {step === 1 ? (
-          <>
-            <View style={{ marginBottom: spacing.xl }}>
-              <PhoneInput label="PHONE NUMBER" value={phone} onChangeText={setPhone} autoFocus />
-            </View>
-            <View style={{ marginBottom: 16 }}>
-              <Button variant="primary-coral" label={sending ? 'Sending…' : 'Send code'} onPress={onSendCode} disabled={sending} />
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: spacing.lg }}>
-              <Text style={{ fontFamily: fontFamilies.regular, fontSize: 13, color: colors.textSub }}>New to hopon? </Text>
-              <Pressable onPress={() => navigation.navigate('SignupPhone')} hitSlop={8} accessibilityRole="link" accessibilityLabel="Create account">
-                <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 13, color: colors.coral }}>Create account</Text>
-              </Pressable>
-            </View>
-          </>
+          <View style={{ marginBottom: spacing.xl }}>
+            <PhoneInput label="PHONE NUMBER" value={phone} onChangeText={setPhone} autoFocus />
+          </View>
         ) : (
-          <>
-            <View style={{ marginBottom: spacing.xxl }}>
-              <Text style={{ fontFamily: fontFamilies.bold, fontSize: 11, letterSpacing: 0.06 * 11, marginBottom: 8, color: colors.textSub }}>VERIFICATION CODE</Text>
-              <OtpInput value={otp} onChangeText={(v) => { setOtp(v); if (v.length >= 6) onVerify(v); }} autoFocus />
-            </View>
-            <Button variant="primary-coral" label={verifying ? 'Verifying…' : 'Verify & sign in'} onPress={() => onVerify()} disabled={verifying} />
-            <Pressable onPress={() => setStep(1)} style={{ alignSelf: 'center', marginTop: spacing.lg, padding: spacing.xs }} hitSlop={8} accessibilityRole="link" accessibilityLabel="Change number">
-              <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 13, color: colors.coral }}>← Change number</Text>
-            </Pressable>
-          </>
+          <View style={{ marginBottom: spacing.xxl }}>
+            <Text style={{ fontFamily: fontFamilies.bold, fontSize: 11, letterSpacing: 0.06 * 11, marginBottom: 8, color: colors.textSub }}>VERIFICATION CODE</Text>
+            <OtpInput value={otp} onChangeText={(v) => { setOtp(v); if (v.length >= 6) onVerify(v); }} autoFocus />
+          </View>
         )}
       </View>
     </Screen>

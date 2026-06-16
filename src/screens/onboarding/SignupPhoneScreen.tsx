@@ -54,8 +54,20 @@ export function SignupPhoneScreen({ navigation }: Props) {
     }
   };
 
+  const footer = (
+    <View style={{ padding: spacing.md, paddingHorizontal: spacing.screenPx, paddingBottom: 32, borderTopWidth: 1, backgroundColor: colors.bg, borderTopColor: colors.border }}>
+      <Button variant="primary-coral" label={sending ? 'Sending…' : 'Send code'} onPress={onContinue} disabled={!canContinue} />
+      <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: spacing.md }}>
+        <Text style={{ fontFamily: fontFamilies.regular, fontSize: 13, color: colors.textSub }}>Already have an account? </Text>
+        <Pressable onPress={() => navigation.navigate('Login')} hitSlop={8} accessibilityRole="link" accessibilityLabel="Log in">
+          <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 13, color: colors.coral }}>Log in</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
   return (
-    <Screen header={header}>
+    <Screen header={header} footer={footer} keyboardAware={false}>
       <View style={{ flex: 1, paddingHorizontal: spacing.screenPx, paddingTop: 28, paddingBottom: 40 }}>
         <View style={{ marginBottom: 28 }}>
           <Text style={{ fontFamily: fontFamilies.black, fontSize: 26, letterSpacing: -0.025 * 26, marginBottom: 8, color: colors.text }}>What's your number?</Text>
@@ -81,14 +93,6 @@ export function SignupPhoneScreen({ navigation }: Props) {
           </Text>
         </View>
 
-        <Button variant="primary-coral" label={sending ? 'Sending…' : 'Send code'} onPress={onContinue} disabled={!canContinue} />
-
-        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: spacing.lg }}>
-          <Text style={{ fontFamily: fontFamilies.regular, fontSize: 13, color: colors.textSub }}>Already have an account? </Text>
-          <Pressable onPress={() => navigation.navigate('Login')} hitSlop={8} accessibilityRole="link" accessibilityLabel="Log in">
-            <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 13, color: colors.coral }}>Log in</Text>
-          </Pressable>
-        </View>
       </View>
     </Screen>
   );

@@ -65,8 +65,19 @@ export function SignupNameScreen({ navigation }: Props) {
     </>
   );
 
+  const footer = (
+    <View style={{ padding: spacing.md, paddingHorizontal: spacing.screenPx, paddingBottom: 32, borderTopWidth: 1, backgroundColor: colors.bg, borderTopColor: colors.border }}>
+      <Button
+        variant="primary-coral"
+        label="Continue"
+        onPress={() => { update({ name: name.trim(), handle }); navigation.navigate('SignupDob'); }}
+        disabled={!canContinue}
+      />
+    </View>
+  );
+
   return (
-    <Screen header={header}>
+    <Screen header={header} footer={footer} keyboardAware={false}>
       <View style={{ flex: 1, paddingHorizontal: spacing.screenPx, paddingTop: 28, paddingBottom: 40 }}>
         <View style={{ marginBottom: 28 }}>
           <Text style={{ fontFamily: fontFamilies.black, fontSize: 26, letterSpacing: -0.025 * 26, marginBottom: 8, color: colors.text }}>What do people call you?</Text>
@@ -114,13 +125,6 @@ export function SignupNameScreen({ navigation }: Props) {
             <Text style={{ fontFamily: fontFamilies.regular, fontSize: 11, marginTop: 6, color: helper.color }}>{helper.text}</Text>
           </View>
         </View>
-
-        <Button
-          variant="primary-coral"
-          label="Continue"
-          onPress={() => { update({ name: name.trim(), handle }); navigation.navigate('SignupDob'); }}
-          disabled={!canContinue}
-        />
       </View>
     </Screen>
   );
