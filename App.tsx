@@ -1,6 +1,6 @@
 import 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Modal, Text, Pressable } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -19,11 +19,13 @@ import {
 import { ThemeProvider, useTheme } from '@/theme';
 import { startAuthAutoRefresh } from '@/api/client';
 import { configurePushHandler } from '@/services/push';
-import { AuthProvider } from '@/state/AuthContext';
+import { AuthProvider, useAuth } from '@/state/AuthContext';
 import { SessionProvider } from '@/state/SessionContext';
 import { RootNavigator } from '@/navigation/RootNavigator';
 import { ToastContainer } from '@/components/atoms/Toast';
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
+import { useSuspended } from '@/state/suspension';
+import { signOut } from '@/api/auth';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -42,6 +44,50 @@ const splash = StyleSheet.create({
 function ThemedStatusBar() {
   const { mode } = useTheme();
   return <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />;
+}
+
+// Rendered inside ThemeProvider + AuthProvider so it can read theme + trigger auth refresh on logout.
+function SuspensionOverlay() {
+  const isSuspended = useSuspended();
+  const { colors } = useTheme();
+  const { refresh } = useAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  if (!isSuspended) return null;
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try { await signOut(); } catch { /* best-effort */ }
+    await refresh();
+  };
+
+  return (
+    <Modal visible transparent animationType="fade" statusBarTranslucent>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <View style={{ width: '100%', borderRadius: 20, padding: 28, backgroundColor: colors.bg }}>
+          <Text style={{ fontFamily: 'Inter-Black', fontSize: 22, color: colors.text, marginBottom: 12 }}>
+            Account suspended
+          </Text>
+          <Text style={{ fontFamily: 'Inter-Regular', fontSize: 15, lineHeight: 24, color: colors.textSub, marginBottom: 8 }}>
+            Your account has been temporarily suspended due to a violation of our community guidelines.
+          </Text>
+          <Text style={{ fontFamily: 'Inter-Regular', fontSize: 15, lineHeight: 24, color: colors.textSub, marginBottom: 28 }}>
+            If you think this is a mistake, email us at{' '}
+            <Text style={{ fontFamily: 'Inter-SemiBold', color: colors.coral }}>support@hopon.app</Text>
+          </Text>
+          <Pressable
+            onPress={handleLogout}
+            disabled={loggingOut}
+            style={{ paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: colors.coral }}
+          >
+            <Text style={{ fontFamily: 'Inter-Bold', fontSize: 15, color: '#fff' }}>
+              {loggingOut ? 'Signing out…' : 'Sign out'}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
 }
 
 export default function App() {
@@ -86,6 +132,7 @@ export default function App() {
                   <ThemedStatusBar />
                   <RootNavigator />
                   <ToastContainer />
+                  <SuspensionOverlay />
                 </SessionProvider>
               </AuthProvider>
             </ThemeProvider>

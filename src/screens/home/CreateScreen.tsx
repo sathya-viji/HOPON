@@ -332,7 +332,7 @@ export function CreateScreen({ navigation, route }: Props) {
 
               {/* Rules */}
               <Stack gap="sm" style={{ paddingBottom: spacing.xs }}>
-                <T.CapsSm>Rules <T.Meta>(optional)</T.Meta></T.CapsSm>
+                <T.CapsSm>About this plan <T.Meta>(optional)</T.Meta></T.CapsSm>
                 <RNTextInput
                   style={{ borderWidth: borderWidths.medium, borderRadius: radii.sm, padding: spacing.sm + 2, paddingHorizontal: spacing.md - 2, fontSize: 13, fontFamily: fontFamilies.regular, lineHeight: 13 * 1.5, minHeight: 70, borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }}
                   placeholder="e.g. Bring your own racquet. Intermediate level only."
@@ -357,7 +357,7 @@ export function CreateScreen({ navigation, route }: Props) {
                 </Stack>
                 <Stack style={{ flex: 1 }}>
                   <T.LabelLg numberOfLines={1}>{activity}</T.LabelLg>
-                  <T.MetaXs numberOfLines={1}>{location || 'HSR Layout'}</T.MetaXs>
+                  <T.MetaXs numberOfLines={1}>{location || 'Add location'}</T.MetaXs>
                 </Stack>
               </Row>
               <Row wrap gap="sm" style={{ padding: spacing.md - 2, paddingHorizontal: spacing.md }}>

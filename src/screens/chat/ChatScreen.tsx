@@ -73,7 +73,7 @@ export function ChatScreen({ navigation, route }: Props) {
           id: m.id,
           planId: m.planId,
           authorId: m.authorId,
-          authorName: isHost ? host?.name ?? 'Host' : j?.name ?? 'Member',
+          authorName: isHost ? host?.name ?? 'Host' : j?.name ?? 'User',
           authorAvatarUri: isHost ? host?.avatarUri : j?.avatarUri,
           isHost,
           body: m.isDeleted ? '[deleted]' : m.body,

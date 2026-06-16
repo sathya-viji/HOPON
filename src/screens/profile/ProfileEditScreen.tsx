@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, ScrollView, TextInput as RNTextInput, Modal, ActivityIndicator } from 'react-native';
 import { Pressable } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -50,20 +51,23 @@ export function ProfileEditScreen({ navigation }: Props) {
   const saving = useRef(false);
 
   // Load the signed-in user's real profile and seed the form.
-  useEffect(() => {
-    let cancelled = false;
-    getMyProfile().then((p) => {
-      if (cancelled || !p) return;
-      setMe(p);
-      setName(p.name);
-      setBio(p.bio ?? '');
-      setInstagram(p.socialLinks?.instagram ?? '');
-      setLinkedin(p.socialLinks?.linkedin ?? '');
-      setFacebook(p.socialLinks?.facebook ?? '');
-      setInterestsState(p.interests ?? []);
-    }).catch(() => { /* leave empty; save guarded on `me` */ });
-    return () => { cancelled = true; };
-  }, []);
+  // Re-runs on focus so neighbourhood updates after returning from SettingsNeighbourhood.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      getMyProfile().then((p) => {
+        if (cancelled || !p) return;
+        setMe(p);
+        setName(p.name);
+        setBio(p.bio ?? '');
+        setInstagram(p.socialLinks?.instagram ?? '');
+        setLinkedin(p.socialLinks?.linkedin ?? '');
+        setFacebook(p.socialLinks?.facebook ?? '');
+        setInterestsState(p.interests ?? []);
+      }).catch(() => { /* leave empty; save guarded on `me` */ });
+      return () => { cancelled = true; };
+    }, []),
+  );
 
   const isDirty = !!me && (
     name !== me.name ||

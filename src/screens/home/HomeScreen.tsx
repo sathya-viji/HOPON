@@ -8,6 +8,7 @@ import { Screen } from '@/components/layout/Screen';
 import { Row } from '@/components/layout/Row';
 import { Stack } from '@/components/layout/Stack';
 import { FilterPills } from '@/components/organisms/FilterPills';
+import { LocationPickerSheet } from '@/components/organisms/LocationPickerSheet';
 import { Spacer } from '@/components/layout/Spacer';
 import { PulseBar } from '@/components/molecules/PulseBar';
 import { TabBar } from '@/components/molecules/TabBar';
@@ -23,6 +24,7 @@ import * as T from '@/components/atoms/T';
 import { useTheme } from '@/theme';
 import { spacing, borderWidths, iconSizes, radii } from '@/theme/tokens';
 import { useHomeFeed } from '@/api/hooks/useHomeFeed';
+import { useHomeLocation } from '@/api/hooks/useHomeLocation';
 import { searchUsers } from '@/api/users';
 import { errorMessage } from '@/api/errors';
 import { planDetailRoute } from '@/utils/plan';
@@ -33,7 +35,6 @@ type Props = StackScreenProps<HomeStackParamList, 'Home'>;
 type HomeTab = 'nearby' | 'joined' | 'created';
 type SortOrder = 'soonest' | 'latest' | 'distance';
 
-const NEIGHBOURHOOD = 'HSR Layout';
 const PREVIEW_EMPTY: HomeTab | null = null;
 
 export function HomeScreen({ navigation }: Props) {
@@ -43,7 +44,11 @@ export function HomeScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<string>('all');
   const [sort, setSort] = useState<SortOrder>('soonest');
   const [people, setPeople] = useState<User[]>([]);
-  const { plans: feed, loading, refreshing, error, refetch } = useHomeFeed();
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+  const { location, setManual, useGPS } = useHomeLocation();
+  const { plans: feed, loading, refreshing, error, refetch } = useHomeFeed(
+    location ? { lat: location.lat, lng: location.lng, radiusKm: 25 } : {},
+  );
 
   const handleJoin = (id: string) => navigation.navigate('Plan', { planId: id });
 
@@ -91,17 +96,17 @@ export function HomeScreen({ navigation }: Props) {
           <T.LabelXs color={colors.textSub}>Map view</T.LabelXs>
         </Tap>
         <Tap
-          onPress={() => navigation.navigate('LocSearch', { returnTo: 'Home' })}
+          onPress={() => setLocationPickerOpen(true)}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: spacing.sm + 2, height: 32, borderWidth: borderWidths.medium, borderRadius: radii.full, backgroundColor: colors.surface, borderColor: colors.border }}
-          accessibilityLabel="Change neighbourhood"
+          accessibilityLabel="Change location"
         >
           <Icon name="map-pin" size={iconSizes.xxs + 3} color={colors.coral} />
-          <T.LabelXs numberOfLines={1}>{NEIGHBOURHOOD}</T.LabelXs>
+          <T.LabelXs numberOfLines={1}>{location?.label || 'Set location'}</T.LabelXs>
           <Icon name="chevron-right" size={iconSizes.xxs + 2} color={colors.textDim} />
         </Tap>
       </Row>
 
-      {tab === 'nearby' ? <PulseBar planCount={filteredNearby.length} peopleCount={142} /> : null}
+      {tab === 'nearby' ? <PulseBar planCount={filteredNearby.length} /> : null}
 
       <TabBar
         tabs={[
@@ -197,7 +202,7 @@ export function HomeScreen({ navigation }: Props) {
       <IconBox size={64} radius={20} bordered style={{ marginBottom: spacing.lg + 4 }}>
         <Icon name="map-pin" size={28} color={colors.textDim} />
       </IconBox>
-      <T.Subheading style={{ textAlign: 'center', marginBottom: spacing.sm }}>No plans in {NEIGHBOURHOOD}</T.Subheading>
+      <T.Subheading style={{ textAlign: 'center', marginBottom: spacing.sm }}>No plans in {location?.label || 'your area'}</T.Subheading>
       <T.BodyLg color={colors.textSub} style={{ textAlign: 'center', maxWidth: 260, marginBottom: spacing.xxxl }}>
         Be the first to post one. Plans go live instantly — someone nearby might hop on.
       </T.BodyLg>
@@ -207,8 +212,8 @@ export function HomeScreen({ navigation }: Props) {
       >
         <T.LabelLg color={colors.white}>+ Post a plan</T.LabelLg>
       </Tap>
-      <Tap onPress={() => navigation.navigate('SettingsNeighbourhood' as never)} hitSlop={spacing.sm}>
-        <T.Meta color={colors.textSub}>or <T.Semibold color={colors.coral}>see plans in nearby areas →</T.Semibold></T.Meta>
+      <Tap onPress={() => setLocationPickerOpen(true)} hitSlop={spacing.sm}>
+        <T.Meta color={colors.textSub}>or <T.Semibold color={colors.coral}>change location →</T.Semibold></T.Meta>
       </Tap>
     </Stack>
   ) : tab === 'nearby' ? (
@@ -295,6 +300,12 @@ export function HomeScreen({ navigation }: Props) {
   return (
     <Screen header={header} scroll={false}>
       {body}
+      <LocationPickerSheet
+        visible={locationPickerOpen}
+        onClose={() => setLocationPickerOpen(false)}
+        onSelectManual={setManual}
+        onSelectGPS={useGPS}
+      />
     </Screen>
   );
 }

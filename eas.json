@@ -13,12 +13,23 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://fxmxutwbdcrkcyedyfnm.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_RpekmTJw0MIa60RgvozFaw_3wukrBKm",
+        "EXPO_PUBLIC_GOOGLE_PLACES_API_KEY": "AIzaSyAl6QtwjzUT2oqCa1hD9RCjACi5Pv9HDns",
+        "EXPO_PUBLIC_BETA_AUTH": "true"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
       "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://fxmxutwbdcrkcyedyfnm.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_RpekmTJw0MIa60RgvozFaw_3wukrBKm",
+        "EXPO_PUBLIC_GOOGLE_PLACES_API_KEY": "AIzaSyAl6QtwjzUT2oqCa1hD9RCjACi5Pv9HDns"
+      },
       "android": {
         "buildType": "app-bundle"
       }

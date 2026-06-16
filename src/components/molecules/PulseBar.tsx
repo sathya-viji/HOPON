@@ -6,16 +6,15 @@ import { LiveDot } from '@/components/atoms/LiveDot';
 
 interface PulseBarProps {
   planCount: number;
-  peopleCount: number;
 }
 
-export function PulseBar({ planCount, peopleCount }: PulseBarProps) {
+export function PulseBar({ planCount }: PulseBarProps) {
   const { colors } = useTheme();
   return (
     <View style={[styles.bar, { backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
       <LiveDot size={6} color={colors.coral} />
       <Text style={[styles.text, { color: colors.text }]}>
-        {planCount} PLANS ACTIVE · {peopleCount} PEOPLE OUT TODAY
+        {planCount} {planCount === 1 ? 'PLAN' : 'PLANS'} ACTIVE
       </Text>
     </View>
   );

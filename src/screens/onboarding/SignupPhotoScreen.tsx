@@ -12,6 +12,8 @@ import { useTheme } from '@/theme';
 import { spacing, fontFamilies, radii } from '@/theme/tokens';
 import { useToast } from '@/hooks/useToast';
 import type { OnboardingStackParamList } from '@/navigation/types';
+import { uploadImage } from '@/api/storage';
+import { useOnboardingDraft } from '@/state/OnboardingDraftContext';
 
 type Props = StackScreenProps<OnboardingStackParamList, 'SignupPhoto'>;
 
@@ -21,13 +23,29 @@ const StyleSheet_absoluteFill = StyleSheet.absoluteFill;
 export function SignupPhotoScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const toast = useToast();
+  const { update } = useOnboardingDraft();
   const [photo, setPhoto] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const pickPhoto = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { toast.show('Photo permission denied'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.9 });
     if (!result.canceled && result.assets[0]) setPhoto(result.assets[0].uri);
+  };
+
+  const handleContinue = async () => {
+    if (!photo) { navigation.navigate('Interests'); return; }
+    setUploading(true);
+    try {
+      const path = await uploadImage('avatars', photo);
+      update({ avatarPath: path });
+    } catch {
+      toast.show('Photo upload failed — you can add one from your profile later.');
+    } finally {
+      setUploading(false);
+    }
+    navigation.navigate('Interests');
   };
 
   const header = (
@@ -82,9 +100,9 @@ export function SignupPhotoScreen({ navigation }: Props) {
         </View>
 
         <View style={{ width: '100%', marginTop: 'auto' }}>
-          <Button variant="primary-coral" label="Continue" onPress={() => navigation.navigate('Interests')} disabled={!photo} />
+          <Button variant="primary-coral" label="Continue" onPress={handleContinue} disabled={!photo || uploading} loading={uploading} />
           <View style={{ height: 10 }} />
-          <Button variant="secondary" label="Skip for now" onPress={() => navigation.navigate('Interests')} />
+          <Button variant="secondary" label="Skip for now" onPress={() => navigation.navigate('Interests')} disabled={uploading} />
         </View>
       </View>
     </Screen>

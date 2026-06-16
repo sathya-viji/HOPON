@@ -36,12 +36,18 @@ export function HomeMapScreen({ navigation }: Props) {
       (!search || p.activity.toLowerCase().includes(search.toLowerCase()) || p.location.toLowerCase().includes(search.toLowerCase())),
   );
 
-  const minLat = 12.91; const maxLat = 12.98;
-  const minLng = 77.59; const maxLng = 77.65;
+  const basePlans = visiblePlans.length > 0 ? visiblePlans : feed;
+  const rawLats = basePlans.map((p) => p.lat).filter(Boolean);
+  const rawLngs = basePlans.map((p) => p.lng).filter(Boolean);
+  const pad = 0.012;
+  const minLat = rawLats.length ? Math.min(...rawLats) - pad : 12.91;
+  const maxLat = rawLats.length ? Math.max(...rawLats) + pad : 12.98;
+  const minLng = rawLngs.length ? Math.min(...rawLngs) - pad : 77.59;
+  const maxLng = rawLngs.length ? Math.max(...rawLngs) + pad : 77.65;
 
   const project = (lat: number, lng: number) => ({
-    x: ((lng - minLng) / (maxLng - minLng)) * 100,
-    y: 100 - ((lat - minLat) / (maxLat - minLat)) * 100,
+    x: maxLng === minLng ? 50 : ((lng - minLng) / (maxLng - minLng)) * 100,
+    y: maxLat === minLat ? 50 : 100 - ((lat - minLat) / (maxLat - minLat)) * 100,
   });
 
   const selectedCat = selected ? CATEGORIES.find((c) => c.id === selected.categoryId) : undefined;

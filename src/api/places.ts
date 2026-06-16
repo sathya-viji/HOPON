@@ -9,10 +9,6 @@
 const KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
 const BASE = 'https://places.googleapis.com/v1';
 
-// Bias predictions toward the launch city (Bangalore) without hard-restricting.
-const LOCATION_BIAS = {
-  circle: { center: { latitude: 12.9716, longitude: 77.5946 }, radius: 50000 },
-};
 
 export interface PlacePrediction {
   placeId: string;
@@ -44,7 +40,7 @@ export async function placesAutocomplete(input: string, sessionToken: string): P
   const res = await fetch(`${BASE}/places:autocomplete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': KEY },
-    body: JSON.stringify({ input, sessionToken, locationBias: LOCATION_BIAS }),
+    body: JSON.stringify({ input, sessionToken }),
   });
   if (!res.ok) throw new Error(`places autocomplete ${res.status}`);
   const json = (await res.json()) as AutocompleteJson;

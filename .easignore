@@ -1,0 +1,49 @@
+# EAS upload ignore — overrides .gitignore for `eas build` archives.
+# Mirrors .gitignore EXCEPT google-services.json, which the Android build needs
+# at prebuild time but which we keep out of git. (.env*.local stays excluded so
+# its localhost values can't override the eas.json `env` for preview/production.)
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native secrets
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Firebase / FCM — keep the service-account admin key out, but allow
+# google-services.json (NOT listed here) into the build.
+GoogleService-Info.plist
+*-firebase-adminsdk-*.json
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files (must stay excluded — localhost would override eas.json env)
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android

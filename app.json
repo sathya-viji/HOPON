@@ -12,6 +12,7 @@
     },
     "android": {
       "package": "com.hopon.app",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#FF4D2E",

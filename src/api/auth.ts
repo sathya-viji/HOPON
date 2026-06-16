@@ -13,6 +13,11 @@ import { setSuspended } from '@/state/suspension';
 
 const DIAL_CODE = '+91';
 
+// ⚠️ BETA backdoor: when EXPO_PUBLIC_BETA_AUTH=true the app skips Twilio OTP and
+// authenticates any number with a single shared code via the `beta-auth` edge
+// function (+ password sign-in). Set to false / unset before public launch.
+const BETA_AUTH = process.env.EXPO_PUBLIC_BETA_AUTH === 'true';
+
 /** 10 local digits → E.164 (e.g. '9876543210' → '+919876543210'). */
 export function toE164(localDigits: string): string {
   const digits = localDigits.replace(/\D/g, '');
@@ -35,17 +40,23 @@ export async function phoneRegistered(localDigits: string): Promise<boolean> {
 
 /** Send a one-time SMS code. Creates the auth user if new. */
 export async function sendOtp(localDigits: string): Promise<void> {
+  if (BETA_AUTH) return; // beta: no SMS — the code screen accepts the fixed beta code
   const { error } = await supabase.auth.signInWithOtp({ phone: toE164(localDigits) });
   if (error) throw error;
 }
 
 /** Verify the code; on success a session is persisted and returned. */
 export async function verifyOtp(localDigits: string, token: string) {
-  const { data, error } = await supabase.auth.verifyOtp({
-    phone: toE164(localDigits),
-    token,
-    type: 'sms',
-  });
+  const phone = toE164(localDigits);
+  if (BETA_AUTH) {
+    // Ensure the user exists with password = the shared code, then sign in.
+    const { error: fnErr } = await supabase.functions.invoke('beta-auth', { body: { phone, code: token } });
+    if (fnErr) throw new Error('That code isn’t right.');
+    const { data, error } = await supabase.auth.signInWithPassword({ phone, password: token });
+    if (error) throw error;
+    return data.session;
+  }
+  const { data, error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
   if (error) throw error;
   return data.session;
 }

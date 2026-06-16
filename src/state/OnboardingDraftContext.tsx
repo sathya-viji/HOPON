@@ -17,9 +17,10 @@ export interface OnboardingDraft {
   dob: string;             // 'YYYY-MM-DD'
   gender: Gender | null;
   interests: string[];     // category ids
+  avatarPath: string | null; // storage object path, set after upload in SignupPhoto
 }
 
-const EMPTY: OnboardingDraft = { name: '', handle: '', dob: '', gender: null, interests: [] };
+const EMPTY: OnboardingDraft = { name: '', handle: '', dob: '', gender: null, interests: [], avatarPath: null };
 
 interface DraftValue {
   draft: OnboardingDraft;

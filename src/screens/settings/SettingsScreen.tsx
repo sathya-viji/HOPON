@@ -135,7 +135,7 @@ export function SettingsScreen({ navigation }: Props) {
         <SettingsRow icon="trash-2" label="Delete account" destructive onPress={() => navigation.navigate('SettingsDelete')} />
 
         <ScreenPad style={{ paddingVertical: spacing.xxl, alignItems: 'center' }}>
-          <T.MetaXs>{`hopon v4.0 · Made with ❤️ in Bangalore`}</T.MetaXs>
+          <T.MetaXs>{`hopon v4.0 · Made with ❤️ in India`}</T.MetaXs>
         </ScreenPad>
       </ScrollView>
     </Screen>
