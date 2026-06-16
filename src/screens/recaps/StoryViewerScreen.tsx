@@ -21,7 +21,7 @@ import { getStoriesFeed, recordStoryView, deleteStory } from '@/api/stories';
 import { submitReport, type ReportReasonValue } from '@/api/safety';
 import { supabase } from '@/api/client';
 import { useToast } from '@/hooks/useToast';
-import type { Story, SocialAuthor } from '@/types';
+import type { StoryGroup } from '@/types';
 import type { RecapsStackParamList } from '@/navigation/types';
 
 type Props = StackScreenProps<RecapsStackParamList, 'StoryViewer'>;
@@ -40,8 +40,8 @@ export function StoryViewerScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const toast = useToast();
 
-  const [author, setAuthor] = useState<SocialAuthor | null>(null);
-  const [stories, setStories] = useState<Story[]>([]);
+  const [groups, setGroups] = useState<StoryGroup[]>([]);
+  const [groupIdx, setGroupIdx] = useState(0);
   const [myUid, setMyUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -50,20 +50,23 @@ export function StoryViewerScreen({ navigation, route }: Props) {
   const progress = useRef(new Animated.Value(0)).current;
   const animRef = useRef<Animated.CompositeAnimation | null>(null);
 
-  // Load the author-group that contains the story we were opened on.
+  // Load the full feed and start on the author-group + story we were opened on.
+  // Keeping every group (not just the opened one) lets playback flow continuously
+  // into the next author's stories, Instagram-style.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const groups = await getStoriesFeed();
+        const feed = await getStoriesFeed();
         if (cancelled) return;
         setMyUid(session?.user?.id ?? null);
-        const group = groups.find((g) => g.stories.some((s) => s.id === route.params.storyId));
-        if (!group) { navigation.goBack(); return; }
-        setAuthor(group.author);
-        setStories(group.stories);
-        setCurrentIdx(Math.max(0, group.stories.findIndex((s) => s.id === route.params.storyId)));
+        const gIdx = feed.findIndex((g) => g.stories.some((s) => s.id === route.params.storyId));
+        if (gIdx < 0) { navigation.goBack(); return; }
+        const sIdx = Math.max(0, feed[gIdx].stories.findIndex((s) => s.id === route.params.storyId));
+        setGroups(feed);
+        setGroupIdx(gIdx);
+        setCurrentIdx(sIdx);
       } catch {
         if (!cancelled) navigation.goBack();
       } finally {
@@ -73,13 +76,38 @@ export function StoryViewerScreen({ navigation, route }: Props) {
     return () => { cancelled = true; };
   }, [route.params.storyId, navigation]);
 
+  const group = groups[groupIdx];
+  const stories = group?.stories ?? [];
+  const author = group?.author ?? null;
   const story = stories[currentIdx];
   const isMine = !!(myUid && author && author.id === myUid);
 
-  const goToStory = (idx: number) => {
-    if (idx < 0 || idx >= stories.length) { navigation.goBack(); return; }
-    progress.setValue(0);
-    setCurrentIdx(idx);
+  // Advance within the current author's stories, crossing into the next/previous
+  // author group at the edges. Closes the viewer past the very last story or
+  // before the very first.
+  const advance = (dir: 1 | -1) => {
+    const within = currentIdx + dir;
+    if (within >= 0 && within < stories.length) {
+      progress.setValue(0);
+      setCurrentIdx(within);
+      return;
+    }
+    if (dir === 1) {
+      if (groupIdx + 1 < groups.length) {
+        progress.setValue(0);
+        setGroupIdx(groupIdx + 1);
+        setCurrentIdx(0);
+      } else {
+        navigation.goBack();
+      }
+    } else if (groupIdx - 1 >= 0) {
+      progress.setValue(0);
+      const prev = groups[groupIdx - 1].stories;
+      setGroupIdx(groupIdx - 1);
+      setCurrentIdx(Math.max(0, prev.length - 1));
+    } else {
+      navigation.goBack();
+    }
   };
 
   // Record a view each time a story is shown (idempotent server-side).
@@ -92,12 +120,12 @@ export function StoryViewerScreen({ navigation, route }: Props) {
     progress.setValue(0);
     if (paused) return;
     animRef.current = Animated.timing(progress, { toValue: 1, duration: STORY_DURATION, useNativeDriver: false });
-    animRef.current.start(({ finished }) => { if (finished) goToStory(currentIdx + 1); });
+    animRef.current.start(({ finished }) => { if (finished) advance(1); });
     return () => { animRef.current?.stop(); };
   }, [currentIdx, paused, story?.id]);
 
-  const handleTapLeft = () => { animRef.current?.stop(); goToStory(currentIdx - 1); };
-  const handleTapRight = () => { animRef.current?.stop(); goToStory(currentIdx + 1); };
+  const handleTapLeft = () => { animRef.current?.stop(); advance(-1); };
+  const handleTapRight = () => { animRef.current?.stop(); advance(1); };
 
   const onReport = () => {
     if (!story) return;
