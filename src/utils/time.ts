@@ -1,3 +1,6 @@
+/** Milliseconds in a Julian year (365.25 days), used for age calculation. */
+export const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
+
 /**
  * Time utilities — all functions accept ISO 8601 timestamp strings and return
  * values suitable for direct UI display or comparison.

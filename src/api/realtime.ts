@@ -25,7 +25,7 @@ export function subscribeToPlanMessages(
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'messages', filter: `plan_id=eq.${planId}` },
-      (payload) => onInsert(mapMessageRow(payload.new as any)),
+      (payload) => onInsert(mapMessageRow(payload.new as unknown as Parameters<typeof mapMessageRow>[0])),
     )
     .subscribe();
   return () => { void supabase.removeChannel(channel); };

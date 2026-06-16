@@ -11,6 +11,7 @@ import { useTheme } from '@/theme';
 import { spacing, fontFamilies, radii } from '@/theme/tokens';
 import { useOnboardingDraft } from '@/state/OnboardingDraftContext';
 import type { OnboardingStackParamList } from '@/navigation/types';
+import { MS_PER_YEAR } from '@/utils/time';
 
 type Props = StackScreenProps<OnboardingStackParamList, 'SignupDob'>;
 
@@ -25,7 +26,7 @@ export function SignupDobScreen({ navigation }: Props) {
   const [dob, setDob] = useState<Date | null>(null);
   const [showPicker, setShowPicker] = useState(false);
 
-  const age = dob ? Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
+  const age = dob ? Math.floor((Date.now() - dob.getTime()) / MS_PER_YEAR) : null;
   const tooYoung = age !== null && age < 18;
   const valid = age !== null && age >= 18;
   const borderColor = tooYoung ? colors.coral : valid ? colors.green : colors.border;

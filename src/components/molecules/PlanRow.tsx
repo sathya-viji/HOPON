@@ -11,7 +11,6 @@ import { SpotsBadge } from '@/components/atoms/SpotsBadge';
 import { Avatar } from '@/components/atoms/Avatar';
 import { Icon } from '@/components/atoms/Icon';
 import { GenderBadge } from './GenderBadge';
-import { getUserById } from '@/mocks';
 import { planDateLabel, isToday } from '@/utils/time';
 
 export type PlanRowVariant = 'nearby' | 'joined' | 'created' | 'history';
@@ -27,8 +26,7 @@ export const PLAN_ROW_HEIGHT = 72;
 
 export function PlanRow({ plan, variant, onPress, onJoin }: PlanRowProps) {
   const { colors } = useTheme();
-  // API-sourced plans embed a host summary; mock plans fall back to the mock dir.
-  const host = plan.host ?? getUserById(plan.hostId);
+  const host = plan.host;
   const isJoined = variant === 'joined';
   const isMine = plan.isMine || variant === 'created';
   const isFull = plan.status === 'full' || plan.spotsRemaining <= 0;

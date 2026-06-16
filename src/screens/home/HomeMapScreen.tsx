@@ -39,11 +39,11 @@ export function HomeMapScreen({ navigation }: Props) {
   const basePlans = visiblePlans.length > 0 ? visiblePlans : feed;
   const rawLats = basePlans.map((p) => p.lat).filter(Boolean);
   const rawLngs = basePlans.map((p) => p.lng).filter(Boolean);
-  const pad = 0.012;
-  const minLat = rawLats.length ? Math.min(...rawLats) - pad : 12.91;
-  const maxLat = rawLats.length ? Math.max(...rawLats) + pad : 12.98;
-  const minLng = rawLngs.length ? Math.min(...rawLngs) - pad : 77.59;
-  const maxLng = rawLngs.length ? Math.max(...rawLngs) + pad : 77.65;
+  const MAP_BBOX_PAD_DEG = 0.012; // bounding box padding in degrees (~1.3 km)
+  const minLat = rawLats.length ? Math.min(...rawLats) - MAP_BBOX_PAD_DEG : 12.91;
+  const maxLat = rawLats.length ? Math.max(...rawLats) + MAP_BBOX_PAD_DEG : 12.98;
+  const minLng = rawLngs.length ? Math.min(...rawLngs) - MAP_BBOX_PAD_DEG : 77.59;
+  const maxLng = rawLngs.length ? Math.max(...rawLngs) + MAP_BBOX_PAD_DEG : 77.65;
 
   const project = (lat: number, lng: number) => ({
     x: maxLng === minLng ? 50 : ((lng - minLng) / (maxLng - minLng)) * 100,

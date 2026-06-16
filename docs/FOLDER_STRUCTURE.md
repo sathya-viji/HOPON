@@ -1,16 +1,21 @@
 # Folder Structure
 
+> **Note:** This document describes the broad structure. For a detailed annotated tree including `api/`, `state/`, `services/`, and `constants/`, see `FOLDER_STRUCTURE_PROPOSAL.md` (which also contains the target state with proposed improvements).
+
 ```
 hopon/
 ├── src/
+│   ├── api/                # All backend communication + data-fetching hooks
+│   │   └── hooks/          # React data-fetching hooks (useHomeFeed, usePlanDetail…)
 │   ├── components/
 │   │   ├── atoms/          # Single-responsibility UI units
 │   │   │   └── inputs/     # Form input atoms
 │   │   ├── layout/         # Structural layout primitives
 │   │   ├── molecules/      # Multi-atom product patterns
 │   │   └── organisms/      # Complex multi-molecule compositions
-│   ├── hooks/              # Shared custom React hooks
-│   ├── mocks/              # Static mock data (replaces API layer during dev)
+│   ├── constants/          # App-wide named constants (MAX_PLAN_LOOKAHEAD_DAYS etc.)
+│   ├── hooks/              # Shared custom React hooks (useCountdown, useToast)
+│   ├── mocks/              # Static mock data for local dev
 │   ├── navigation/         # Navigator components and param type definitions
 │   ├── screens/            # Screen components, organised by product domain
 │   │   ├── chat/
@@ -21,10 +26,14 @@ hopon/
 │   │   ├── profile/
 │   │   ├── recaps/
 │   │   └── settings/
+│   ├── services/           # Native service wrappers (push.ts)
+│   ├── state/              # App-global state contexts (Auth, Session, OnboardingDraft)
 │   ├── theme/              # Design system: tokens, text styles, theme context
 │   ├── types/              # TypeScript domain type definitions
 │   └── utils/              # Pure utility functions
 ├── docs/                   # Frontend architecture documentation (this folder)
+├── scripts/                # DB reset, migration, and test harness scripts
+├── supabase/               # Supabase config, migrations, and pgTAP tests
 └── assets/                 # Fonts, images, icons
 ```
 
@@ -42,7 +51,7 @@ The components tree follows the atom → molecule → organism hierarchy. Within
 
 Screens are grouped by product domain. Domain folders map to logical user journeys, not to navigation stacks — for example, `plan/` contains all plan lifecycle states (posted, joined, ended, host view) even though some plan screens are reachable from different stacks.
 
-**`_Placeholder.tsx`** is a generic placeholder screen used for routes that exist in the navigation map but don't have a real screen yet.
+All screens in the navigation have real implementations. There is no placeholder screen.
 
 ---
 

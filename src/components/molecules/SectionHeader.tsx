@@ -26,7 +26,7 @@ export function SectionHeader({ label, count, action, onActionPress, showCoralDo
         </Text>
       </View>
       {action ? (
-        <Pressable onPress={onActionPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={action}>
+        <Pressable onPress={onActionPress} hitSlop={spacing.sm} accessibilityRole="button" accessibilityLabel={action}>
           <Text style={[styles.action, { color: colors.coral }]}>{action}</Text>
         </Pressable>
       ) : null}

@@ -52,6 +52,8 @@ export function EndorseScreen({ navigation, route }: Props) {
     if (!detail || !planId) return;
     let cancelled = false;
     setLoadingPeople(true); setWaiting(false);
+    // Host mode: the host can end the plan and immediately see attendees.
+    // Peer mode: peers can only endorse after the host ends the plan (status = 'ended').
     (async () => {
       try {
         if (detail.plan.status !== 'ended') {

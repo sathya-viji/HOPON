@@ -3,7 +3,26 @@
 Resume point for a fresh session. Read this + the docs linked below to get full
 context. Everything is on disk (no git remote; same machine).
 
-_Last updated: 2026-06-13._
+_Last updated: 2026-06-16._
+
+---
+
+## Maintainability Sprint (2026-06-16) — COMPLETE
+
+A zero-behavior-change maintainability pass over Waves 1–7. Tagged
+`maintainability-sprint-2026-06-16`. See `docs/MAINTAINABILITY_SPRINT_REPORT.md`
+for the full report and `docs/MAINTAINABILITY_PLAN.md` for the phase plan.
+
+- **Dead code removed:** 3 unused hooks, `_Placeholder.tsx`, 3 `.DS_Store` files,
+  mock imports purged from `PlanRow`/`RecapCard`, `react-native-maps` dropped.
+- **Type safety:** 14 `as any` cast sites replaced with documented type aliases;
+  `FadeUp` style prop typed.
+- **Consistency:** `hitSlop` → `spacing` tokens; magic numbers → `src/constants/plan.ts`
+  + `MS_PER_YEAR`; push logs guarded with `__DEV__`.
+- **Docs:** new `docs/TESTING.md`; `FOLDER_STRUCTURE.md` refreshed.
+- **Validation:** `npx tsc --noEmit` clean after every phase.
+- **Known debt deferred (needs behavior change):** `getUserHostedPlans` throws
+  42501 — needs a `get_user_plans` SECURITY DEFINER RPC. See sprint report §Remaining.
 
 ---
 

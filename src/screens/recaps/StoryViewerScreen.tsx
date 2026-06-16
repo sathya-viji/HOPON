@@ -172,7 +172,7 @@ export function StoryViewerScreen({ navigation, route }: Props) {
             <Text style={{ fontFamily: fontFamilies.regular, fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 1 }}>{timeAgo(story.createdAt)}</Text>
           </View>
         </View>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={spacing.md} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="x" size={18} color="#fff" strokeWidth={2.5} />
         </Pressable>
       </View>
@@ -199,17 +199,17 @@ export function StoryViewerScreen({ navigation, route }: Props) {
       {/* Bottom-right actions: report (others) or delete (own), + share */}
       <View style={{ position: 'absolute', bottom: 0, right: 0, width: 72, alignItems: 'center', flexDirection: 'column', gap: 22, paddingRight: 12, paddingBottom: Math.max(insets.bottom, 16) + 16, zIndex: 20 }}>
         {isMine ? (
-          <Pressable onPress={onDelete} hitSlop={10} style={{ alignItems: 'center', gap: 4 }}>
+          <Pressable onPress={onDelete} hitSlop={spacing.sm} style={{ alignItems: 'center', gap: 4 }}>
             <Icon name="trash-2" size={28} color="#fff" strokeWidth={1.75} />
             <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 12, color: '#fff' }}>Delete</Text>
           </Pressable>
         ) : (
-          <Pressable onPress={onReport} hitSlop={10} style={{ alignItems: 'center', gap: 4 }}>
+          <Pressable onPress={onReport} hitSlop={spacing.sm} style={{ alignItems: 'center', gap: 4 }}>
             <Icon name="flag" size={28} color="#fff" strokeWidth={1.75} />
             <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 12, color: '#fff' }}>Report</Text>
           </Pressable>
         )}
-        <Pressable onPressIn={() => setPaused(true)} onPressOut={() => setPaused(false)} onPress={() => toast.show('Share')} hitSlop={10} style={{ alignItems: 'center', gap: 4 }}>
+        <Pressable onPressIn={() => setPaused(true)} onPressOut={() => setPaused(false)} onPress={() => toast.show('Share')} hitSlop={spacing.sm} style={{ alignItems: 'center', gap: 4 }}>
           <Icon name="share-2" size={28} color="#fff" strokeWidth={1.75} />
           <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 12, color: '#fff' }}>Share</Text>
         </Pressable>

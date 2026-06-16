@@ -33,7 +33,12 @@ yarn-error.*
 
 # macOS
 .DS_Store
+**/.DS_Store
 *.pem
+
+# Test artefact directories
+_soak/
+_uxaudit/
 
 # local env files
 .env*.local

@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/useToast';
 import { createPlan } from '@/api/plans';
 import { errorMessage } from '@/api/errors';
 import type { HomeStackParamList } from '@/navigation/types';
+import { MAX_PLAN_LOOKAHEAD_MS } from '@/constants/plan';
 
 type Props = StackScreenProps<HomeStackParamList, 'Create'>;
 type CostId = 'free' | 'copay' | 'seeking' | 'sponsored';
@@ -24,7 +25,7 @@ type GenderId = 'all' | 'women' | 'men';
 type PickerMode = 'date' | 'time';
 
 // Server caps the start at +14 days (starts_too_far); mirror it in the picker.
-const MAX_START = () => new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+const MAX_START = () => new Date(Date.now() + MAX_PLAN_LOOKAHEAD_MS);
 
 const COST_OPTS: { id: CostId; label: string }[] = [
   { id: 'free', label: 'Free' },

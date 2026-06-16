@@ -8,7 +8,6 @@ import { Avatar } from '@/components/atoms/Avatar';
 import * as T from '@/components/atoms/T';
 import { useTheme } from '@/theme';
 import { spacing, borderWidths } from '@/theme/tokens';
-import { getUserById } from '@/mocks';
 import { timeAgo } from '@/utils/time';
 import { Recap } from '@/types';
 
@@ -19,12 +18,8 @@ interface RecapCardProps {
 
 export function RecapCard({ recap, onPress }: RecapCardProps) {
   const { colors } = useTheme();
-  // Prefer the author embedded by the backend feed; fall back to the mock
-  // lookup for any remaining mock-driven callers. When the author isn't
-  // resolvable (e.g. a followers-only author shown to a non-follower — recaps
-  // are neighbourhood-public), render a graceful "Member" placeholder instead of
-  // a blank card.
-  const author = recap.author ?? getUserById(recap.authorId);
+  // When author isn't embedded (rare edge case), render a graceful "Member" placeholder.
+  const author = recap.author;
   const name = author?.name ?? 'Member';
   const handle = author?.handle ? `@${author.handle.replace('@', '')} · ` : '';
   return (

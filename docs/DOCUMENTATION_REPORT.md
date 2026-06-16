@@ -1,3 +1,6 @@
+# Documentation Audit Report (Archived)
+> **Superseded** by `DOCUMENTATION_AUDIT.md` (2026-06-16). This report documents the initial documentation pass; the later audit reflects the current state.
+
 # Documentation Audit Report
 
 ## Documentation Added

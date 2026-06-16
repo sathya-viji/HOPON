@@ -17,6 +17,10 @@ import { spacing, radii, iconSizes, borderWidths } from '@/theme/tokens';
 import { usePlanDetail } from '@/api/hooks/usePlanDetail';
 import type { HomeStackParamList } from '@/navigation/types';
 
+// Cross-stack navigation: `getParent()` reaches the tab navigator whose type
+// React Navigation doesn't expose via StackScreenProps. This alias documents intent.
+type TabNav = { navigate: (tab: string, params?: Record<string, unknown>) => void };
+
 type Props = StackScreenProps<HomeStackParamList, 'PlanEnded'>;
 
 export function PlanEndedScreen({ navigation, route }: Props) {
@@ -78,7 +82,7 @@ export function PlanEndedScreen({ navigation, route }: Props) {
       ) : null}
 
       <Pressable
-        onPress={() => (navigation.getParent() as any)?.navigate('RecapsTab', { screen: 'RecapPost', params: { planId: plan.id } })}
+        onPress={() => (navigation.getParent() as unknown as TabNav | undefined)?.navigate('RecapsTab', { screen: 'RecapPost', params: { planId: plan.id } })}
         style={{ padding: spacing.md, marginHorizontal: spacing.screenPx, marginVertical: spacing.md, borderRadius: radii.lg, backgroundColor: colors.cost.copayBg }}
       >
         <Row gap="sm" style={{ marginBottom: spacing.sm }}>

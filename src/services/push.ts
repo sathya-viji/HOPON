@@ -82,7 +82,7 @@ export async function configurePushHandler(): Promise<void> {
       });
     }
   } catch (e) {
-    console.warn('[push] handler config skipped:', (e as Error)?.message ?? String(e));
+    if (__DEV__) console.warn('[push] handler config skipped:', (e as Error)?.message ?? String(e));
   }
 }
 
@@ -165,12 +165,12 @@ export async function registerForPushNotificationsAsync(): Promise<void> {
   if (info.token && (Platform.OS === 'ios' || Platform.OS === 'android')) {
     try {
       await registerPushToken(info.token, Platform.OS);
-      console.log('[push] expo push token registered');
+      if (__DEV__) console.log('[push] expo push token registered');
     } catch (e) {
-      console.warn('[push] token registration failed:', (e as Error)?.message ?? String(e));
+      if (__DEV__) console.warn('[push] token registration failed:', (e as Error)?.message ?? String(e));
     }
   } else {
-    console.log('[push] registration skipped:', info.error ?? 'no token');
+    if (__DEV__) console.log('[push] registration skipped:', info.error ?? 'no token');
   }
 }
 

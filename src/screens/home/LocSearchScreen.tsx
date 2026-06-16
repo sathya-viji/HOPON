@@ -24,6 +24,12 @@ import type { HomeStackParamList } from '@/navigation/types';
 
 type Props = StackScreenProps<HomeStackParamList, 'LocSearch'>;
 
+// `popTo` is React Navigation 7's new method and is not yet in the TypeScript
+// type definitions. This alias documents the call shape until upstream adds it.
+type StackNavWithPopTo = Props['navigation'] & {
+  popTo: (screen: string, params?: Record<string, unknown>, options?: { merge?: boolean }) => void;
+};
+
 export function LocSearchScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
   const toast = useToast();
@@ -58,9 +64,10 @@ export function LocSearchScreen({ navigation, route }: Props) {
   // resets the Create wizard. popTo returns to the existing instance, merging params.
   const finish = (loc: PlaceLocation) => {
     const params = { location: loc.label, lat: loc.lat, lng: loc.lng };
-    if (returnTo === 'PlanEdit') (navigation as any).popTo('PlanEdit', params, { merge: true });
-    else if (returnTo === 'Home') (navigation as any).popTo('Home');
-    else (navigation as any).popTo('Create', params, { merge: true });
+    const nav = navigation as unknown as StackNavWithPopTo;
+    if (returnTo === 'PlanEdit') nav.popTo('PlanEdit', params, { merge: true });
+    else if (returnTo === 'Home') nav.popTo('Home');
+    else nav.popTo('Create', params, { merge: true });
   };
 
   const pickPrediction = async (p: PlacePrediction) => {

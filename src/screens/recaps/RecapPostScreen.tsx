@@ -104,7 +104,7 @@ export function RecapPostScreen({ navigation, route }: Props) {
                 <Image source={{ uri }} style={StyleSheet_absoluteFill} contentFit="cover" />
                 <Pressable
                   onPress={() => removePhoto(uri)}
-                  hitSlop={8}
+                  hitSlop={spacing.sm}
                   style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}
                 >
                   <Icon name="x" size={14} color={colors.white} strokeWidth={2.5} />

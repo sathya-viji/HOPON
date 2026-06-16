@@ -21,6 +21,10 @@ import { errorMessage } from '@/api/errors';
 import type { HomeStackParamList } from '@/navigation/types';
 import { Notification, NotifType } from '@/types';
 
+// Cross-stack navigation: `getParent()` reaches the tab navigator whose type
+// React Navigation doesn't expose via StackScreenProps. This alias documents intent.
+type TabNav = { navigate: (tab: string, params?: Record<string, unknown>) => void };
+
 // Plan-param navigation target per type (null = no target / handled specially:
 // recap types route via recapId, social types via the actor's userId below).
 const ROUTE_FOR_TYPE: Record<NotifType, keyof HomeStackParamList | null> = {
@@ -97,7 +101,7 @@ export function NotificationsScreen({ navigation }: Props) {
       return;
     }
     const route = ROUTE_FOR_TYPE[n.type];
-    if (route && n.planId) (navigation as any).navigate(route, { planId: n.planId });
+    if (route && n.planId) (navigation as unknown as { navigate: (r: string, p: Record<string, string>) => void }).navigate(route, { planId: n.planId });
   };
 
   const decide = async (n: Notification, approved: boolean) => {
@@ -145,7 +149,7 @@ export function NotificationsScreen({ navigation }: Props) {
               onApprove={() => decide(item, true)}
               onDecline={() => decide(item, false)}
               onPostRecap={(planId) =>
-                (navigation.getParent() as any)?.navigate('RecapsTab', { screen: 'RecapPost', params: { planId } })
+                (navigation.getParent() as unknown as TabNav | undefined)?.navigate('RecapsTab', { screen: 'RecapPost', params: { planId } })
               }
             />
           </FadeUp>
