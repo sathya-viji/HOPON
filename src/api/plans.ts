@@ -269,22 +269,14 @@ export async function getMyPlans(): Promise<MyPlanItem[]> {
 
 /**
  * Plans hosted by a given user, newest first — for the ProfileOther "Hosted"
- * tab.
- *
- * ⚠️ Same KNOWN BACKEND GAP as getMyPlans: a direct `plans` select fails for
- * `authenticated` with 42501 (users-column-privilege cascade), so this throws
- * today and the tab falls back to empty. Needs a SECURITY DEFINER
- * `get_user_plans(p_user_id)` RPC (flagged, not done — new migration).
- * (Another user's JOINED plans are not exposable at all — plan_members RLS only
- * covers the viewer's own membership.)
+ * tab. Reads via the `get_user_plans` SECURITY DEFINER RPC (migration 0020),
+ * which bypasses the users-column-privilege cascade that made a direct `plans`
+ * select throw 42501 for `authenticated`. (Another user's JOINED plans are not
+ * exposable — plan_members RLS only covers the viewer's own membership.)
  */
 export async function getUserHostedPlans(userId: string): Promise<Plan[]> {
   const uid = await viewerId();
-  const { data, error } = await supabase
-    .from('plans')
-    .select('*')
-    .eq('host_id', userId)
-    .order('starts_at', { ascending: false });
+  const { data, error } = await supabase.rpc('get_user_plans', { p_user_id: userId });
   if (error) throw error;
   return ((data ?? []) as FeedItem['plan'][]).map((p) =>
     mapFeedItemToPlan({ plan: p, host: null, joiners: [] }, uid),

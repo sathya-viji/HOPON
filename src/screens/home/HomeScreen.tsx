@@ -93,15 +93,15 @@ export function HomeScreen({ navigation }: Props) {
           accessibilityLabel="Map view"
         >
           <Icon name="map" size={iconSizes.xs} color={colors.textSub} />
-          <T.LabelXs color={colors.textSub}>Map view</T.LabelXs>
+          <T.LabelXs color={colors.textSub}>Map</T.LabelXs>
         </Tap>
         <Tap
           onPress={() => setLocationPickerOpen(true)}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: spacing.sm + 2, height: 32, borderWidth: borderWidths.medium, borderRadius: radii.full, backgroundColor: colors.surface, borderColor: colors.border }}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: spacing.sm + 2, height: 32, borderWidth: borderWidths.medium, borderRadius: radii.full, backgroundColor: colors.surface, borderColor: colors.border, flexShrink: 1 }}
           accessibilityLabel="Change location"
         >
           <Icon name="map-pin" size={iconSizes.xxs + 3} color={colors.coral} />
-          <T.LabelXs numberOfLines={1}>{location?.label || 'Set location'}</T.LabelXs>
+          <T.LabelXs numberOfLines={1} style={{ maxWidth: 120 }}>{location?.label || 'Set location'}</T.LabelXs>
           <Icon name="chevron-right" size={iconSizes.xxs + 2} color={colors.textDim} />
         </Tap>
       </Row>

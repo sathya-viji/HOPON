@@ -77,6 +77,11 @@ const RECAP_TYPES = new Set<NotifType>([
 ]);
 const PROFILE_TYPES = new Set<NotifType>([
   'new_follower', 'follow_request', 'follow_accepted', 'contact_joined',
+  'new_familiar_face', // actor = the new face → open their profile
+]);
+// Types whose payoff is on the viewer's OWN profile — cross-tab to Profile.
+const OWN_PROFILE_TYPES = new Set<NotifType>([
+  'endorsement_received', 'attendance_score_improved', 'attendance_score_dropped',
 ]);
 
 type Props = StackScreenProps<HomeStackParamList, 'Notifications'>;
@@ -98,6 +103,11 @@ export function NotificationsScreen({ navigation }: Props) {
     }
     if (PROFILE_TYPES.has(n.type) && n.userId) {
       navigation.navigate('ProfileOther', { userId: n.userId });
+      return;
+    }
+    if (OWN_PROFILE_TYPES.has(n.type)) {
+      (navigation.getParent() as unknown as { navigate: (t: string, p: object) => void } | undefined)
+        ?.navigate('ProfileTab', { screen: 'Profile' });
       return;
     }
     const route = ROUTE_FOR_TYPE[n.type];

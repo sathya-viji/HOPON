@@ -39,6 +39,7 @@ export function EndorseScreen({ navigation, route }: Props) {
   const [waiting, setWaiting] = useState(false);          // peer, plan not wrapped up yet
   const [noShow, setNoShow] = useState<Record<string, boolean>>({}); // default present; flag exceptions
   const [tag, setTag] = useState<Record<string, string | undefined>>({});
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false); // viewer has marks already
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -65,7 +66,20 @@ export function EndorseScreen({ navigation, route }: Props) {
           }
         }
         const list = await getPlanAttendees(planId);
-        if (!cancelled) setPeople(list);
+        if (!cancelled) {
+          setPeople(list);
+          // Hydrate from the viewer's existing marks so re-opening reflects (and
+          // preserves) a prior submission instead of resetting to all-present.
+          const ns: Record<string, boolean> = {};
+          const tg: Record<string, string | undefined> = {};
+          let submitted = false;
+          for (const a of list) {
+            if (a.myResult != null) submitted = true;
+            if (a.myResult === 'noshow') ns[a.id] = true;
+            if (a.myTag) tg[a.id] = a.myTag;
+          }
+          setNoShow(ns); setTag(tg); setAlreadySubmitted(submitted);
+        }
       } catch {
         if (!cancelled) setPeople([]);
       } finally {
@@ -138,7 +152,17 @@ export function EndorseScreen({ navigation, route }: Props) {
 
   const footer = (
     <ScreenPad style={{ paddingVertical: spacing.md, paddingBottom: spacing.xxxl, borderTopWidth: borderWidths.thin, borderTopColor: colors.border, backgroundColor: colors.bg }}>
-      <Button variant="primary-coral" label={busy ? 'Submitting…' : 'Submit attendance'} onPress={submit} disabled={busy || people.length === 0} />
+      {alreadySubmitted ? (
+        <T.MetaXs color={colors.textSub} style={{ textAlign: 'center', marginBottom: spacing.sm }}>
+          You’ve submitted — you can update until it’s tallied.
+        </T.MetaXs>
+      ) : null}
+      <Button
+        variant="primary-coral"
+        label={busy ? 'Submitting…' : alreadySubmitted ? 'Update attendance' : 'Submit attendance'}
+        onPress={submit}
+        disabled={busy || people.length === 0}
+      />
     </ScreenPad>
   );
 

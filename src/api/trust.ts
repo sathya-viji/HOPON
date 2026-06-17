@@ -55,8 +55,15 @@ export async function voteHostNoshow(planId: string): Promise<void> {
   if (error) throw error;
 }
 
-interface AttendeeRow { user_id: string; is_host: boolean; name: string | null; avatar_path: string | null }
-export interface PlanAttendee { id: string; name: string; avatarUri?: string; isHost: boolean }
+interface AttendeeRow {
+  user_id: string; is_host: boolean; name: string | null; avatar_path: string | null;
+  my_result?: 'present' | 'noshow' | null; my_tag?: string | null;
+}
+export interface PlanAttendee {
+  id: string; name: string; avatarUri?: string; isHost: boolean;
+  // The viewer's existing mark for this person (null until they've submitted).
+  myResult?: 'present' | 'noshow' | null; myTag?: string | null;
+}
 
 /**
  * Full participant set of an ENDED plan (host + members, incl. the caller), for
@@ -71,6 +78,8 @@ export async function getPlanAttendees(planId: string): Promise<PlanAttendee[]> 
     name: a.name ?? 'Member',
     avatarUri: avatarUrl(a.avatar_path),
     isHost: a.is_host,
+    myResult: a.my_result ?? null,
+    myTag: a.my_tag ?? null,
   }));
 }
 

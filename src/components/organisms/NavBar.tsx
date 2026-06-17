@@ -93,7 +93,7 @@ export function NavBar({
           handlers[item.id]?.();
         }}
         style={styles.navBtn}
-        hitSlop={6}
+        hitSlop={8}
         accessibilityRole="tab"
         accessibilityLabel={item.label}
       >

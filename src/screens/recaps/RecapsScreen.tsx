@@ -191,7 +191,9 @@ export function RecapsScreen({ navigation }: Props) {
                 <Pressable
                   onPress={() => navigation.navigate('CreateStory')}
                   style={{ position: 'absolute', bottom: 18, right: -4, width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center', zIndex: 2, backgroundColor: colors.coral, borderColor: colors.bg }}
-                  hitSlop={4}
+                  hitSlop={spacing.md}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add to your story"
                 >
                   <Icon name="plus" size={10} color={colors.white} strokeWidth={2.5} />
                 </Pressable>

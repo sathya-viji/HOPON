@@ -46,7 +46,7 @@ export function SocialLinks({ links }: SocialLinksProps) {
 
   const openLink = (url: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Linking.openURL(url).catch(() => {});
+    Linking.openURL(url).catch((e) => { if (__DEV__) console.warn('[social] openURL failed:', e); });
   };
 
   return (

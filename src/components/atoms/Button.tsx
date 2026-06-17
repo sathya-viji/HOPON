@@ -26,8 +26,6 @@ interface ButtonProps {
   loading?: boolean;
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 export function Button({ variant, label, leadingIcon, onPress, disabled, loading }: ButtonProps) {
   const { colors } = useTheme();
   const scale = useSharedValue(1);
@@ -68,52 +66,61 @@ export function Button({ variant, label, leadingIcon, onPress, disabled, loading
 
   const variantStyle = getVariantStyle(variant, colors, disabled);
 
+  // The touch target is a plain RN Pressable (reliable full-area hitbox on
+  // Fabric); the press-scale animation lives on an inner Animated.View. Wrapping
+  // the Pressable itself in Reanimated's animated component collapsed the touch
+  // area to the inner content on Android, so only the centre/text was tappable.
   if (isBack) {
     return (
-      <AnimatedPressable
+      <Pressable
         onPress={handlePress}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
-        style={[styles.backBtn, { backgroundColor: colors.surface, borderColor: colors.border }, animatedStyle]}
         hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel="Go back"
       >
-        <Icon name="chevron-left" size={20} color={colors.text} />
-      </AnimatedPressable>
+        <Animated.View style={[styles.backBtn, { backgroundColor: colors.surface, borderColor: colors.border }, animatedStyle]}>
+          <Icon name="chevron-left" size={20} color={colors.text} />
+        </Animated.View>
+      </Pressable>
     );
   }
 
   return (
-    <AnimatedPressable
+    <Pressable
       onPress={handlePress}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       disabled={isFull || disabled || loading}
-      style={[
-        styles.base,
-        variantStyle.container,
-        isInline ? styles.inline : styles.block,
-        animatedStyle,
-      ]}
+      style={isInline ? undefined : styles.fullWidth}
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <View style={styles.row}>
-        {loading ? (
-          <ActivityIndicator color={variantStyle.text.color} size="small" />
-        ) : (
-          <>
-            {leadingIcon ? (
-              <Icon name={leadingIcon} size={isInline ? 12 : 16} color={variantStyle.text.color} strokeWidth={2.25} />
-            ) : null}
-            <Text style={[variantStyle.text, isInline ? styles.inlineText : styles.blockText]} numberOfLines={1}>
-              {label}
-            </Text>
-          </>
-        )}
-      </View>
-    </AnimatedPressable>
+      <Animated.View
+        style={[
+          styles.base,
+          variantStyle.container,
+          isInline ? styles.inline : styles.block,
+          animatedStyle,
+        ]}
+      >
+        <View style={styles.row}>
+          {loading ? (
+            <ActivityIndicator color={variantStyle.text.color} size="small" />
+          ) : (
+            <>
+              {leadingIcon ? (
+                <Icon name={leadingIcon} size={isInline ? 12 : 16} color={variantStyle.text.color} strokeWidth={2.25} />
+              ) : null}
+              <Text style={[variantStyle.text, isInline ? styles.inlineText : styles.blockText]} numberOfLines={1}>
+                {label}
+              </Text>
+            </>
+          )}
+        </View>
+      </Animated.View>
+    </Pressable>
   );
 }
 
@@ -194,6 +201,7 @@ function getVariantStyle(
 }
 
 const styles = StyleSheet.create({
+  fullWidth: { width: '100%' },
   base: {
     alignItems: 'center',
     justifyContent: 'center',

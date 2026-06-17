@@ -41,15 +41,23 @@ export function mapMessageRow(r: MessageRow): ChatMessageRaw {
   };
 }
 
-/** Full chat history for a plan, oldest first (only active members can read). */
+/**
+ * Recent chat history for a plan, oldest first (only active members can read).
+ * Bounded to the most recent MESSAGE_PAGE messages so opening a long-lived plan's
+ * chat never pulls an unbounded history; fetched newest-first then reversed for
+ * display. (Per-plan volume is already small — ≤10 members, short lifecycle —
+ * this just removes the unbounded-query risk.)
+ */
+export const MESSAGE_PAGE = 100;
 export async function getMessages(planId: string): Promise<ChatMessageRaw[]> {
   const { data, error } = await supabase
     .from('messages')
     .select('id,plan_id,author_id,body,is_deleted,created_at')
     .eq('plan_id', planId)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false })
+    .limit(MESSAGE_PAGE);
   if (error) throw error;
-  return ((data ?? []) as MessageRow[]).map(mapMessageRow);
+  return ((data ?? []) as MessageRow[]).map(mapMessageRow).reverse();
 }
 
 /** Send a message to a plan's group chat. Throws typed chat-lock/membership errors. */

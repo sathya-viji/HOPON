@@ -43,8 +43,8 @@ export function SettingsScreen({ navigation }: Props) {
   const [inviting, setInviting] = useState(false);
   useFocusEffect(useCallback(() => {
     let cancelled = false;
-    getMyProfile().then((p) => { if (!cancelled) setMe(p); }).catch(() => {});
-    getInviteStats().then((s) => { if (!cancelled) setInvites(s); }).catch(() => {});
+    getMyProfile().then((p) => { if (!cancelled) setMe(p); }).catch((e) => { if (__DEV__) console.warn('[settings] getMyProfile failed:', e); });
+    getInviteStats().then((s) => { if (!cancelled) setInvites(s); }).catch((e) => { if (__DEV__) console.warn('[settings] getInviteStats failed:', e); });
     return () => { cancelled = true; };
   }, []));
 
@@ -57,7 +57,7 @@ export function SettingsScreen({ navigation }: Props) {
       else if (res.status === 'denied') toast.show('Contact access denied — enable it in Settings to invite friends');
       else if (res.status === 'no_contacts') toast.show('No contacts found to invite');
       else toast.show('Couldn’t send invites. Try again.');
-      getInviteStats().then(setInvites).catch(() => {});
+      getInviteStats().then(setInvites).catch((e) => { if (__DEV__) console.warn('[settings] getInviteStats failed:', e); });
     } catch (e) {
       toast.show(errorMessage(e, 'Couldn’t send invites.'));
     } finally {

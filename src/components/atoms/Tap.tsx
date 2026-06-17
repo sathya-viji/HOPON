@@ -13,8 +13,6 @@ interface TapProps {
   children: React.ReactNode;
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 export function Tap({ onPress, onLongPress, style, hitSlop, disabled, accessibilityLabel, accessibilityRole, children }: TapProps) {
   const scale = useSharedValue(1);
 
@@ -31,8 +29,11 @@ export function Tap({ onPress, onLongPress, style, hitSlop, disabled, accessibil
     scale.value = withSpring(1, { damping: 15, stiffness: 400 });
   };
 
+  // Plain Pressable is the touch target (full-area hitbox on Fabric); the scale
+  // animation lives on an inner Animated.View. Wrapping the Pressable itself in
+  // Reanimated's animated component collapsed the touch area on Android.
   return (
-    <AnimatedPressable
+    <Pressable
       onPress={disabled ? undefined : onPress}
       onLongPress={onLongPress}
       onPressIn={onPressIn}
@@ -41,9 +42,10 @@ export function Tap({ onPress, onLongPress, style, hitSlop, disabled, accessibil
       disabled={disabled}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityRole ?? 'button'}
-      style={[style, animatedStyle]}
     >
-      {children}
-    </AnimatedPressable>
+      <Animated.View style={[style, animatedStyle]}>
+        {children}
+      </Animated.View>
+    </Pressable>
   );
 }

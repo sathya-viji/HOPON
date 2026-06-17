@@ -33,10 +33,15 @@ interface TProps {
   onPress?: () => void;
 }
 
+// Cap Dynamic Type scaling so large accessibility text sizes don't clip out of
+// the app's many fixed-height controls (pills, inline buttons, rows), while still
+// allowing meaningful enlargement for low-vision users.
+const TEXT_MAX_SCALE = 1.4;
+
 export function PageTitle({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.pageTitle, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.pageTitle, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );
@@ -45,7 +50,7 @@ export function PageTitle({ color, style, numberOfLines, children, onPress }: TP
 export function Heading({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.heading, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.heading, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );
@@ -54,7 +59,7 @@ export function Heading({ color, style, numberOfLines, children, onPress }: TPro
 export function Subheading({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.subheading, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.subheading, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );
@@ -63,7 +68,7 @@ export function Subheading({ color, style, numberOfLines, children, onPress }: T
 export function BodyLg({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.bodyLg, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.bodyLg, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );
@@ -72,7 +77,7 @@ export function BodyLg({ color, style, numberOfLines, children, onPress }: TProp
 export function BodyMd({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.bodyMd, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.bodyMd, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );
@@ -81,7 +86,7 @@ export function BodyMd({ color, style, numberOfLines, children, onPress }: TProp
 export function LabelLg({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.labelLg, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.labelLg, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );
@@ -90,7 +95,7 @@ export function LabelLg({ color, style, numberOfLines, children, onPress }: TPro
 export function LabelMd({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.labelMd, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.labelMd, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );
@@ -99,7 +104,7 @@ export function LabelMd({ color, style, numberOfLines, children, onPress }: TPro
 export function LabelSm({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.labelSm, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.labelSm, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );
@@ -108,7 +113,7 @@ export function LabelSm({ color, style, numberOfLines, children, onPress }: TPro
 export function LabelXs({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.labelXs, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.labelXs, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );
@@ -117,7 +122,7 @@ export function LabelXs({ color, style, numberOfLines, children, onPress }: TPro
 export function CapsLg({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.capsLg, { color: color ?? colors.textSub }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.capsLg, { color: color ?? colors.textSub }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );
@@ -126,7 +131,7 @@ export function CapsLg({ color, style, numberOfLines, children, onPress }: TProp
 export function CapsSm({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.capsSm, { color: color ?? colors.textSub }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.capsSm, { color: color ?? colors.textSub }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );
@@ -135,7 +140,7 @@ export function CapsSm({ color, style, numberOfLines, children, onPress }: TProp
 export function Meta({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.meta, { color: color ?? colors.textSub }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.meta, { color: color ?? colors.textSub }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );
@@ -144,7 +149,7 @@ export function Meta({ color, style, numberOfLines, children, onPress }: TProps)
 export function MetaXs({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.metaXs, { color: color ?? colors.textDim }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.metaXs, { color: color ?? colors.textDim }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );
@@ -153,7 +158,7 @@ export function MetaXs({ color, style, numberOfLines, children, onPress }: TProp
 export function StatNum({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.statNum, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.statNum, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );
@@ -162,7 +167,7 @@ export function StatNum({ color, style, numberOfLines, children, onPress }: TPro
 export function Semibold({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.semibold, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.semibold, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );
@@ -171,7 +176,7 @@ export function Semibold({ color, style, numberOfLines, children, onPress }: TPr
 export function Display({ color, style, numberOfLines, children, onPress }: TProps) {
   const { colors } = useTheme();
   return (
-    <Text style={[textStyles.display, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress}>
+    <Text style={[textStyles.display, { color: color ?? colors.text }, style]} numberOfLines={numberOfLines} onPress={onPress} maxFontSizeMultiplier={TEXT_MAX_SCALE}>
       {children}
     </Text>
   );

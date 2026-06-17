@@ -145,7 +145,7 @@ export function CreateScreen({ navigation, route }: Props) {
           <T.LabelLg>{step === 1 ? "What's the plan?" : step === 2 ? 'Details' : 'Review & post'}</T.LabelLg>
           <T.MetaXs>Step {step} of 3</T.MetaXs>
         </Stack>
-        <Pressable onPress={goBack} hitSlop={spacing.sm} style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface }}>
+        <Pressable onPress={goBack} hitSlop={spacing.sm} accessibilityRole="button" accessibilityLabel={step === 1 ? 'Close' : 'Back'} style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface }}>
           <Icon name="x" size={iconSizes.sm} color={colors.textSub} />
         </Pressable>
       </Row>
@@ -160,6 +160,8 @@ export function CreateScreen({ navigation, route }: Props) {
         <Row gap="sm">
           <Pressable
             onPress={goBack}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
             style={{ paddingVertical: 14, paddingHorizontal: spacing.lg, borderRadius: radii.sm, borderWidth: borderWidths.medium, alignItems: 'center', justifyContent: 'center', borderColor: colors.border, backgroundColor: colors.surface }}
           >
             <T.Semibold color={colors.textSub}>← Back</T.Semibold>
@@ -232,6 +234,8 @@ export function CreateScreen({ navigation, route }: Props) {
                     <Pressable
                       key={m}
                       onPress={() => setPickerMode(m)}
+                      accessibilityRole="button"
+                      accessibilityLabel={m === 'date' ? 'Pick date' : 'Pick time'}
                       style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs + 1, paddingVertical: 11, paddingHorizontal: spacing.md - 2, borderRadius: radii.sm, borderWidth: borderWidths.medium, backgroundColor: colors.surface, borderColor: pickerMode === m ? colors.text : colors.border }}
                     >
                       <Icon name={m === 'date' ? 'calendar' : 'clock'} size={iconSizes.xs} color={colors.textSub} />
@@ -266,6 +270,8 @@ export function CreateScreen({ navigation, route }: Props) {
                 <Row gap="sm" align="center">
                   <Pressable
                     onPress={() => setSpots((s) => Math.max(2, s - 1))}
+                    accessibilityRole="button"
+                    accessibilityLabel="Decrease spots"
                     style={{ width: 32, height: 32, borderRadius: radii.xs, borderWidth: borderWidths.medium, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg, borderColor: colors.border, opacity: spots <= 2 ? 0.3 : 1 }}
                   >
                     <T.LabelLg>−</T.LabelLg>
@@ -273,6 +279,8 @@ export function CreateScreen({ navigation, route }: Props) {
                   <T.StatNum style={{ minWidth: 24, textAlign: 'center' }}>{spots}</T.StatNum>
                   <Pressable
                     onPress={() => setSpots((s) => Math.min(10, s + 1))}
+                    accessibilityRole="button"
+                    accessibilityLabel="Increase spots"
                     style={{ width: 32, height: 32, borderRadius: radii.xs, borderWidth: borderWidths.medium, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ctaBg, borderColor: colors.ctaBg, opacity: spots >= 10 ? 0.3 : 1 }}
                   >
                     <T.LabelLg color={colors.ctaFg}>+</T.LabelLg>
@@ -287,7 +295,7 @@ export function CreateScreen({ navigation, route }: Props) {
                   {COST_OPTS.map((o) => {
                     const on = cost === o.id;
                     return (
-                      <Pressable key={o.id} onPress={() => setCost(o.id)} style={{ flex: 1, minWidth: '45%', paddingVertical: spacing.sm + 2, alignItems: 'center', borderRadius: radii.sm, borderWidth: borderWidths.medium, backgroundColor: on ? colors.ctaBg : colors.surface, borderColor: on ? colors.ctaBg : colors.border }}>
+                      <Pressable key={o.id} onPress={() => setCost(o.id)} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={`Cost: ${o.label}`} style={{ flex: 1, minWidth: '45%', paddingVertical: spacing.sm + 2, alignItems: 'center', borderRadius: radii.sm, borderWidth: borderWidths.medium, backgroundColor: on ? colors.ctaBg : colors.surface, borderColor: on ? colors.ctaBg : colors.border }}>
                         <T.LabelXs color={on ? colors.ctaFg : colors.textSub}>{o.label}</T.LabelXs>
                       </Pressable>
                     );
@@ -302,7 +310,7 @@ export function CreateScreen({ navigation, route }: Props) {
                   {WHO_OPTS.map((o) => {
                     const on = genderPref === o.id;
                     return (
-                      <Pressable key={o.id} onPress={() => setGenderPref(o.id)} style={{ flex: 1, paddingVertical: 9, paddingHorizontal: spacing.xs, borderRadius: radii.sm, borderWidth: borderWidths.medium, alignItems: 'center', backgroundColor: on ? colors.ctaBg : colors.surface, borderColor: on ? colors.ctaBg : colors.border }}>
+                      <Pressable key={o.id} onPress={() => setGenderPref(o.id)} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={`Who can join: ${o.label}`} style={{ flex: 1, paddingVertical: 9, paddingHorizontal: spacing.xs, borderRadius: radii.sm, borderWidth: borderWidths.medium, alignItems: 'center', backgroundColor: on ? colors.ctaBg : colors.surface, borderColor: on ? colors.ctaBg : colors.border }}>
                         <T.LabelXs color={on ? colors.ctaFg : colors.textSub}>{o.label}</T.LabelXs>
                       </Pressable>
                     );
@@ -317,7 +325,7 @@ export function CreateScreen({ navigation, route }: Props) {
                   {(['open', 'closed'] as const).map((t) => {
                     const on = planType === t;
                     return (
-                      <Pressable key={t} onPress={() => setPlanType(t)} style={{ flex: 1, padding: spacing.md - 2, borderRadius: radii.sm, borderWidth: borderWidths.medium, backgroundColor: on ? colors.surfaceMid : colors.surface, borderColor: on ? colors.text : colors.border }}>
+                      <Pressable key={t} onPress={() => setPlanType(t)} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={t === 'open' ? 'Open — anyone joins instantly' : 'Closed — you approve each request'} style={{ flex: 1, padding: spacing.md - 2, borderRadius: radii.sm, borderWidth: borderWidths.medium, backgroundColor: on ? colors.surfaceMid : colors.surface, borderColor: on ? colors.text : colors.border }}>
                         <Row gap="sm" style={{ marginBottom: 3 }}>
                           <View style={{ width: 16, height: 16, borderRadius: 8, borderWidth: 2, alignItems: 'center', justifyContent: 'center', borderColor: on ? colors.text : colors.borderMid }}>
                             {on ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.text }} /> : null}
@@ -375,7 +383,7 @@ export function CreateScreen({ navigation, route }: Props) {
               </Row>
             </Stack>
 
-            <Pressable onPress={() => setStep(2)} style={{ alignSelf: 'center', marginTop: spacing.sm + 2 }}>
+            <Pressable onPress={() => setStep(2)} accessibilityRole="button" accessibilityLabel="Edit details" style={{ alignSelf: 'center', marginTop: spacing.sm + 2 }}>
               <T.Semibold color={colors.coral}>Edit details →</T.Semibold>
             </Pressable>
           </ScreenPad>
