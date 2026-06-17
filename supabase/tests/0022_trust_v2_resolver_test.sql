@@ -147,7 +147,10 @@ select is((select count(*)::int from familiar_faces where '70000000-0000-4000-a0
 -- pB: two flaggers → F no-show
 select is(_status('70000000-0000-4000-b000-00000000000b','70000000-0000-4000-a000-000000000008'),'noshow','pB: 2 credible flaggers → F no-show');
 select is(_status('70000000-0000-4000-b000-00000000000b','70000000-0000-4000-a000-000000000006'),'attended','pB: D present');
-select ok(not exists(select 1 from familiar_faces where '70000000-0000-4000-a000-000000000008' in (user_a_id::text,user_b_id::text)),'pB: no-show F excluded from familiar faces');
+select ok(not exists(select 1 from familiar_faces where
+     (user_a_id='70000000-0000-4000-a000-000000000006' and user_b_id='70000000-0000-4000-a000-000000000008')
+  or (user_a_id='70000000-0000-4000-a000-000000000007' and user_b_id='70000000-0000-4000-a000-000000000008')),
+  'pB: F dropped from both flaggers'' faces (pairwise; host edge may remain)');
 select is((select count(*)::int from notifications where user_id='70000000-0000-4000-a000-000000000008' and type='marked_noshow'),1,'pB: F notified marked_noshow');
 
 -- pC: self-no-show G → noshow; G excluded from endorsements + faces; I present

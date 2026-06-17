@@ -99,13 +99,15 @@ select is((select tag from attendance_marks am,_p where am.plan_id=(_p.plan).id
 select is(get_endorsement_summary('50000000-0000-4000-a000-000000000003'), '[]'::jsonb,
   'get_endorsement_summary empty pre-resolution');
 
--- ── Endorsement window (S2): >48h after ended_at ⇒ closed ─────────────────
+-- ── Endorsement window (0019): closed once the plan has been RESOLVED ──────
+-- (was a fixed +48h; now the window closes when the morning resolver runs.)
 select set_config('request.jwt.claims', null, true);
-update plans set ended_at = now() - interval '49 hours' where id=(select (plan).id from _p);
+update plans set status='ended', ended_at = now() - interval '49 hours' where id=(select (plan).id from _p);
+select fn_resolve_attendance();  -- ended >6h ago → resolves, closing the window
 select test_login('50000000-0000-4000-a000-000000000001');
 select throws_ok($SQL$ select submit_endorsements((select (plan).id from _p),
   jsonb_build_array(jsonb_build_object('subject_id','50000000-0000-4000-a000-000000000002','result','present','tag','late'))) $SQL$,
-  'P0001','endorsement_window_closed','submit blocked after 48h');
+  'P0001','endorsement_window_closed','submit blocked after the plan is resolved');
 
 select * from finish();
 rollback;

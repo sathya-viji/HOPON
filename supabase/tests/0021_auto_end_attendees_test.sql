@@ -35,12 +35,12 @@ select complete_signup('Out Sider','@o_sider','1994-01-01','man','HSR');
 select test_login('60000000-0000-4000-a000-000000000006');
 select complete_signup('Score Subj','@s_subj','1995-01-01','man','HSR');
 
--- pAuto: started 2h ago (auto-end target). pFuture: tomorrow (must NOT end).
+-- pAuto: started 3h ago (auto-end target, >2h threshold). pFuture: tomorrow (must NOT end).
 insert into plans (id, host_id, category_id, activity, description, location_label, lat, lng,
    starts_at, capacity, spots_remaining, plan_type, status, cost, cost_note, gender_pref)
 values
   ('60000000-0000-4000-b000-000000000001','60000000-0000-4000-a000-000000000001','sports','Auto end test','d','Loc',12.9,77.6,
-   now() - interval '2 hours', 6, 3, 'open'::plan_type_t,'active'::plan_status_t,'free'::cost_t,null,'all'::gender_pref_t),
+   now() - interval '3 hours', 6, 3, 'open'::plan_type_t,'active'::plan_status_t,'free'::cost_t,null,'all'::gender_pref_t),
   ('60000000-0000-4000-b000-000000000002','60000000-0000-4000-a000-000000000001','sports','Future plan','d','Loc',12.9,77.6,
    now() + interval '1 day', 6, 5, 'open'::plan_type_t,'active'::plan_status_t,'free'::cost_t,null,'all'::gender_pref_t);
 insert into plan_members (plan_id, user_id, status) values
@@ -50,7 +50,7 @@ insert into plan_members (plan_id, user_id, status) values
 
 -- ── fn_auto_end_plans ──────────────────────────────────────────────────────
 select has_function('fn_auto_end_plans', 'fn_auto_end_plans() exists');
-select ok((select fn_auto_end_plans()) >= 1, 'auto-end ended at least the 2h-old plan');
+select ok((select fn_auto_end_plans()) >= 1, 'auto-end ended at least the 3h-old plan');
 select results_eq($SQL$ select status::text from plans where id='60000000-0000-4000-b000-000000000001' $SQL$,
   array['ended'], 'pAuto flipped to ended');
 select ok((select ended_at from plans where id='60000000-0000-4000-b000-000000000001') is not null,
