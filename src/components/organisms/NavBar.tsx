@@ -1,23 +1,32 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useTheme } from '@/theme';
-import { radii, layout, fontFamilies, shadow } from '@/theme/tokens';
+import { radii, layout, shadow } from '@/theme/tokens';
 import { Icon, IconName } from '@/components/atoms/Icon';
+import { Avatar } from '@/components/atoms/Avatar';
 import { Tap } from '@/components/atoms/Tap';
 
-export type NavTab = 'home' | 'notifications' | 'recaps' | 'profile';
+export type NavTab = 'home' | 'notifications' | 'map' | 'recaps' | 'profile';
 
 interface NavBarProps {
   active: NavTab;
+  // Full-bleed screens (e.g. the map) render this as an absolute overlay so
+  // content extends behind it, instead of the bar reserving its own layout
+  // space and pushing content up (the default, used everywhere else).
+  overlay?: boolean;
+  // Shown in place of the generic profile icon when available.
+  myAvatarUri?: string;
+  myName?: string;
   badges?: { notifications?: number };
   onHomePress?: () => void;
   onNotificationsPress?: () => void;
+  onMapPress?: () => void;
   onRecapsPress?: () => void;
   onProfilePress?: () => void;
-  onCreatePress?: () => void;
 }
 
 interface Item {
@@ -28,6 +37,9 @@ interface Item {
 
 const ITEMS_LEFT: Item[] = [
   { id: 'home', label: 'Home', icon: 'home' },
+  { id: 'map', label: 'Map', icon: 'map' },
+];
+const ITEMS_CENTER: Item[] = [
   { id: 'notifications', label: 'Notifs', icon: 'bell' },
 ];
 const ITEMS_RIGHT: Item[] = [
@@ -37,7 +49,7 @@ const ITEMS_RIGHT: Item[] = [
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
-function BadgePill({ count, bgColor, borderColor, textColor }: { count: number; bgColor: string; borderColor: string; textColor: string }) {
+function BadgeDot({ count, bgColor, borderColor }: { count: number; bgColor: string; borderColor: string }) {
   const scale = useSharedValue(1);
 
   useEffect(() => {
@@ -51,31 +63,33 @@ function BadgePill({ count, bgColor, borderColor, textColor }: { count: number; 
     transform: [{ scale: scale.value }],
   }));
 
-  return (
-    <AnimatedView style={[styles.badge, { backgroundColor: bgColor, borderColor }, animatedStyle]}>
-      <Text style={[styles.badgeText, { color: textColor }]}>
-        {count > 99 ? '99+' : count}
-      </Text>
-    </AnimatedView>
-  );
+  return <AnimatedView style={[styles.badge, { backgroundColor: bgColor, borderColor }, animatedStyle]} />;
 }
 
 export function NavBar({
   active,
+  overlay,
+  myAvatarUri,
+  myName,
   badges,
   onHomePress,
   onNotificationsPress,
+  onMapPress,
   onRecapsPress,
   onProfilePress,
-  onCreatePress,
 }: NavBarProps) {
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'ios' ? Math.min(insets.bottom, 20) : insets.bottom;
+  // GlassView renders real iOS 26 Liquid Glass and otherwise falls back to a
+  // plain View — give that fallback (Android, iOS <26) an opaque background
+  // instead of an unstyled transparent box.
+  const glassAvailable = isLiquidGlassAvailable();
 
   const handlers: Record<NavTab, (() => void) | undefined> = {
     home: onHomePress,
     notifications: onNotificationsPress,
+    map: onMapPress,
     recaps: onRecapsPress,
     profile: onProfilePress,
   };
@@ -97,57 +111,52 @@ export function NavBar({
         accessibilityRole="tab"
         accessibilityLabel={item.label}
       >
-        <Icon name={item.icon} size={22} color={color} strokeWidth={isActive ? 2 : 1.75} />
-        <Text
-          style={[
-            styles.navLabel,
-            { color, fontFamily: isActive ? fontFamilies.bold : fontFamilies.semibold },
-          ]}
-        >
-          {item.label}
-        </Text>
+        {item.id === 'profile' ? (
+          <View style={[styles.avatarRing, isActive && { borderColor: colors.text }]}>
+            <Avatar uri={myAvatarUri} name={myName} size={22} />
+          </View>
+        ) : (
+          <Icon name={item.icon} size={22} color={color} strokeWidth={isActive ? 2 : 1.75} />
+        )}
         {badge ? (
-          <BadgePill count={badge} bgColor={colors.coral} borderColor={colors.bg} textColor={colors.white} />
+          <BadgeDot count={badge} bgColor={colors.coral} borderColor={colors.bg} />
         ) : null}
       </Tap>
     );
   };
 
   return (
-    <View
-      style={[
-        styles.bar,
-        {
-          backgroundColor: colors.bg,
-          borderTopColor: colors.border,
-          height: layout.navBarHeight + bottomInset,
-          paddingBottom: bottomInset,
-        },
-      ]}
-    >
-      {ITEMS_LEFT.map(renderItem)}
-      <Tap
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          onCreatePress?.();
-        }}
-        style={[styles.createBtn, { backgroundColor: colors.coral }, shadow.coral]}
-        accessibilityLabel="Create a plan"
+    <View style={[styles.wrapper, overlay && styles.wrapperOverlay, { paddingBottom: bottomInset || 12 }]}>
+      <GlassView
+        glassEffectStyle="regular"
+        colorScheme={mode}
+        style={[styles.bar, { height: layout.navBarHeight }, !glassAvailable && { backgroundColor: colors.bg }, shadow.lg]}
       >
-        <Icon name="plus" size={26} color={colors.white} strokeWidth={2.5} />
-      </Tap>
-      {ITEMS_RIGHT.map(renderItem)}
+        {ITEMS_LEFT.map(renderItem)}
+        {ITEMS_CENTER.map(renderItem)}
+        {ITEMS_RIGHT.map(renderItem)}
+      </GlassView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  wrapperOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
     paddingHorizontal: 8,
-    borderTopWidth: 1,
+    borderRadius: radii.full,
   },
   navBtn: {
     alignItems: 'center',
@@ -159,28 +168,22 @@ const styles = StyleSheet.create({
     minHeight: 44,
     position: 'relative',
   },
-  navLabel: { fontSize: 10 },
+  avatarRing: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   badge: {
     position: 'absolute',
-    top: -2,
-    right: 8,
-    minWidth: 16,
-    height: 16,
+    top: 2,
+    right: 14,
+    width: 10,
+    height: 10,
     borderRadius: radii.full,
-    paddingHorizontal: 4,
     borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: {
-    fontSize: 9,
-    fontFamily: fontFamilies.bold,
-  },
-  createBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: radii.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

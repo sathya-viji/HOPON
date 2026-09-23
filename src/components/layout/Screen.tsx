@@ -14,7 +14,7 @@
  * input bar pinned by KeyboardAvoidingView).
  */
 import React from 'react';
-import { View, ScrollView, StyleSheet, Platform } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView, KeyboardAvoidingView } from 'react-native-keyboard-controller';
@@ -92,7 +92,16 @@ export function Screen({
     return (
       <KeyboardAvoidingView
         style={[styles.root, { backgroundColor: bg }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        // AndroidManifest sets windowSoftInputMode="adjustResize", but
+        // react-native-keyboard-controller's KeyboardProvider forces the
+        // activity into edge-to-edge mode as soon as it mounts — and
+        // edge-to-edge disables the OS's automatic adjustResize behavior
+        // entirely (the app becomes responsible for its own keyboard insets).
+        // So relying on the OS to resize the window (behavior=undefined) left
+        // the footer/inputs hidden behind the keyboard on Android. "padding"
+        // works on both platforms regardless of edge-to-edge/adjustResize,
+        // since it just adds bottom padding for the keyboard's own height.
+        behavior="padding"
         keyboardVerticalOffset={0}
       >
         {inner}

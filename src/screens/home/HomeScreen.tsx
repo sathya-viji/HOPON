@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { isToday, isTomorrow } from '@/utils/time';
-import { View, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, ScrollView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { Tap } from '@/components/atoms/Tap';
 import { FadeUp } from '@/components/atoms/FadeUp';
 import type { StackScreenProps } from '@react-navigation/stack';
@@ -22,7 +22,7 @@ import { IconBox } from '@/components/atoms/IconBox';
 import { EmptyState } from '@/components/atoms/EmptyState';
 import * as T from '@/components/atoms/T';
 import { useTheme } from '@/theme';
-import { spacing, borderWidths, iconSizes, radii } from '@/theme/tokens';
+import { spacing, borderWidths, iconSizes, radii, shadow } from '@/theme/tokens';
 import { useHomeFeed } from '@/api/hooks/useHomeFeed';
 import { useHomeLocation } from '@/api/hooks/useHomeLocation';
 import { searchUsers } from '@/api/users';
@@ -87,14 +87,6 @@ export function HomeScreen({ navigation }: Props) {
       <Row gap="sm" style={{ paddingHorizontal: spacing.screenPx, paddingTop: spacing.sm + 2, paddingBottom: spacing.sm, borderBottomWidth: borderWidths.thin, borderBottomColor: colors.border }}>
         <Logo height={20} />
         <Spacer flex />
-        <Tap
-          onPress={() => navigation.navigate('HomeMap')}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: spacing.sm + 2, height: 32, borderWidth: borderWidths.medium, borderRadius: radii.full, backgroundColor: colors.surface, borderColor: colors.border }}
-          accessibilityLabel="Map view"
-        >
-          <Icon name="map" size={iconSizes.xs} color={colors.textSub} />
-          <T.LabelXs color={colors.textSub}>Map</T.LabelXs>
-        </Tap>
         <Tap
           onPress={() => setLocationPickerOpen(true)}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: spacing.sm + 2, height: 32, borderWidth: borderWidths.medium, borderRadius: radii.full, backgroundColor: colors.surface, borderColor: colors.border, flexShrink: 1 }}
@@ -279,7 +271,19 @@ export function HomeScreen({ navigation }: Props) {
           <T.BodyMd color={colors.textSub}>No plans match “{search.trim()}”.</T.BodyMd>
         </Stack>
       </ScrollView>
-    ) : emptyContent;
+    ) : (
+      // Empty states render as a plain Stack, which has nothing to drag —
+      // wrap in a ScrollView so pull-to-refresh works with zero plans too
+      // (e.g. someone posts nearby right after you land on an empty feed).
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.coral} />}
+      >
+        {emptyContent}
+      </ScrollView>
+    );
   } else {
     body = (
       <ScrollView
@@ -300,6 +304,14 @@ export function HomeScreen({ navigation }: Props) {
   return (
     <Screen header={header} scroll={false}>
       {body}
+      <Pressable
+        onPress={() => navigation.navigate('Create')}
+        style={[{ position: 'absolute', bottom: spacing.lg, right: spacing.md, width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.coral }, shadow.coral]}
+        accessibilityRole="button"
+        accessibilityLabel="Post a plan"
+      >
+        <Icon name="plus" size={iconSizes.md} color="#fff" strokeWidth={2.5} />
+      </Pressable>
       <LocationPickerSheet
         visible={locationPickerOpen}
         onClose={() => setLocationPickerOpen(false)}

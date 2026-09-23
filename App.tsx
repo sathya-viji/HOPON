@@ -125,7 +125,7 @@ export default function App() {
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <KeyboardProvider>
+          <KeyboardProvider statusBarTranslucent={false} navigationBarTranslucent={false}>
             <ThemeProvider>
               <AuthProvider>
                 <SessionProvider>

@@ -181,15 +181,15 @@ export function CreateScreen({ navigation, route }: Props) {
       <ScrollView showsVerticalScrollIndicator={false}>
         {step === 1 ? (
           <ScreenPad style={{ paddingTop: spacing.md, paddingBottom: spacing.sm }}>
-            {/* Category grid */}
-            <Row wrap gap="sm">
+            {/* Category list */}
+            <Stack gap="sm">
               {CATEGORIES.map((c) => {
                 const on = categoryId === c.id;
                 return (
                   <Pressable
                     key={c.id}
                     onPress={() => setCategoryId(c.id)}
-                    style={{ width: '23%', height: 80, alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: spacing.xs, borderRadius: radii.sm, borderWidth: borderWidths.medium, backgroundColor: on ? c.bg : colors.surface, borderColor: on ? colors.text : colors.border }}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md, borderRadius: radii.sm, borderWidth: borderWidths.medium, backgroundColor: on ? c.bg : colors.surface, borderColor: on ? colors.text : colors.border }}
                     accessibilityRole="button"
                     accessibilityState={{ selected: on }}
                     accessibilityLabel={c.label}
@@ -197,11 +197,12 @@ export function CreateScreen({ navigation, route }: Props) {
                     <View style={{ width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: c.bg }}>
                       <Icon name={c.icon as IconName} size={18} color={c.iconColor} strokeWidth={2} />
                     </View>
-                    <T.LabelXs color={on ? c.iconColor : colors.textSub} style={{ textAlign: 'center', lineHeight: 14 }} numberOfLines={2}>{c.label}</T.LabelXs>
+                    <T.LabelSm color={on ? c.iconColor : colors.text} style={{ flex: 1 }}>{c.label}</T.LabelSm>
+                    {on ? <Icon name="check" size={iconSizes.sm} color={c.iconColor} /> : null}
                   </Pressable>
                 );
               })}
-            </Row>
+            </Stack>
 
             {/* Activity name */}
             <Stack gap="sm" style={{ marginTop: spacing.md }}>

@@ -69,7 +69,13 @@
           "color": "#F0492D"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "react-native-maps",
+        {
+          "androidGoogleMapsApiKey": "AIzaSyAl6QtwjzUT2oqCa1hD9RCjACi5Pv9HDns"
+        }
+      ]
     ],
     "extra": {
       "eas": {

@@ -111,7 +111,7 @@ export const spacing = {
 } as const;
 
 export const layout = {
-  navBarHeight: 72,
+  navBarHeight: 56,
   minTapTarget: 44,
 } as const;
 
