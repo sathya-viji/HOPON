@@ -110,7 +110,10 @@ Phone auth works locally via a **dummy Twilio block + test_otp** in
 
 | Doc | What |
 |---|---|
-| `../hopon-backend-execution.md` | the frozen architecture/execution spec (source of truth) |
+| `../reference/hopon-backend-execution.md` | the frozen architecture/execution spec (source of truth) |
+| `../reference/hopon-v4.html` | prototype HTML — visual-fidelity source of truth |
+| `../reference/hopon-prd-aligned.docx` | product requirements doc |
+| `../reference/hopon-ui-execution-aligned.md` | UI execution plan |
 | `docs/INTEGRATION_PLAN.md` | client integration plan + the 7 waves |
 | `docs/TRUST_V2_DESIGN.md` / `docs/TRUST_V2_REPORT.md` | peer-corroborated attendance model |
 | `docs/NOTIFICATION_MATRIX.md` | notification types + classes |
