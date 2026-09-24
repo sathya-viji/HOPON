@@ -20,14 +20,22 @@ interface PlanRowProps {
   variant: PlanRowVariant;
   onPress: (planId: string) => void;
   onJoin?: (planId: string) => void;
+  /** List rows are separated by a bottom border; standalone uses (e.g. the
+   *  map's plan card) look wrong with a trailing line and should omit it. */
+  bordered?: boolean;
+  /** The joined-row green background + left border — useful to scan a list
+   *  of many rows, but redundant (and too loud) on a single standalone card
+   *  where the "IN" button already conveys joined state. List-only by default. */
+  tinted?: boolean;
 }
 
 export const PLAN_ROW_HEIGHT = 72;
 
-export function PlanRow({ plan, variant, onPress, onJoin }: PlanRowProps) {
+export function PlanRow({ plan, variant, onPress, onJoin, bordered = true, tinted = true }: PlanRowProps) {
   const { colors } = useTheme();
   const host = plan.host;
   const isJoined = variant === 'joined';
+  const showTint = isJoined && tinted;
   const isMine = plan.isMine || variant === 'created';
   const isFull = plan.status === 'full' || plan.spotsRemaining <= 0;
 
@@ -45,10 +53,11 @@ export function PlanRow({ plan, variant, onPress, onJoin }: PlanRowProps) {
     styles.row,
     {
       borderBottomColor: colors.border,
-      paddingLeft: isJoined ? spacing.screenPx - 3 : spacing.screenPx,
-      backgroundColor: isJoined ? colors.joinedRowBg : colors.bg,
+      borderBottomWidth: bordered ? 1 : 0,
+      paddingLeft: showTint ? spacing.screenPx - 3 : spacing.screenPx,
+      backgroundColor: showTint ? colors.joinedRowBg : colors.bg,
     },
-    isJoined ? { borderLeftWidth: 3, borderLeftColor: colors.green } : null,
+    showTint ? { borderLeftWidth: 3, borderLeftColor: colors.green } : null,
   ];
 
   const hostFirstName = host?.name.split(' ')[0] ?? '';
@@ -151,7 +160,6 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 12,
     paddingRight: spacing.screenPx,
-    borderBottomWidth: 1,
   },
   info: { flex: 1, minWidth: 0 },
   what: {

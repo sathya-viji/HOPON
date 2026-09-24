@@ -226,14 +226,14 @@ export const shadow = {
 // Components should use cat.bg / cat.iconColor (light) or cat.darkBg / cat.darkIconColor (dark)
 // by reading the current mode from useTheme() rather than hardcoding one variant.
 export const CATEGORIES = [
-  { id: 'sports',        label: 'Sports & fitness', icon: 'dumbbell',     bg: '#E8F5E9', darkBg: '#0A1F0C', iconColor: '#2E7D32', darkIconColor: '#4CAF6A' },
-  { id: 'food',          label: 'Food & drinks',    icon: 'utensils',     bg: '#FFF4DC', darkBg: '#1F1500', iconColor: '#B8860B', darkIconColor: '#E8A800' },
-  { id: 'entertainment', label: 'Entertainment',    icon: 'clapperboard', bg: '#EEF2FF', darkBg: '#0E0A1F', iconColor: '#4527A0', darkIconColor: '#9575CD' },
-  { id: 'outdoors',      label: 'Outdoors',         icon: 'trees',        bg: '#F0FFF4', darkBg: '#081A0C', iconColor: '#1B5E20', darkIconColor: '#43A85A' },
-  { id: 'learning',      label: 'Learning',         icon: 'book-open',    bg: '#F0F8FF', darkBg: '#081018', iconColor: '#01579B', darkIconColor: '#4D9FE8' },
-  { id: 'social',        label: 'Social',           icon: 'users',        bg: '#FFF5F3', darkBg: '#1A0810', iconColor: '#880E4F', darkIconColor: '#E040A0' },
-  { id: 'arts',          label: 'Arts & culture',   icon: 'palette',      bg: '#FFF8E1', darkBg: '#1A0E00', iconColor: '#E65100', darkIconColor: '#FF7F3E' },
-  { id: 'other',         label: 'Other',            icon: 'sparkles',     bg: '#F5F5F5', darkBg: '#181818', iconColor: '#555555', darkIconColor: '#999999' },
+  { id: 'sports',        label: 'Sports & fitness', icon: 'dumbbell',     emoji: '🏃', bg: '#E8F5E9', darkBg: '#0A1F0C', iconColor: '#2E7D32', darkIconColor: '#4CAF6A' },
+  { id: 'food',          label: 'Food & drinks',    icon: 'utensils',     emoji: '🍽️', bg: '#FFF4DC', darkBg: '#1F1500', iconColor: '#B8860B', darkIconColor: '#E8A800' },
+  { id: 'entertainment', label: 'Entertainment',    icon: 'clapperboard', emoji: '🎬', bg: '#EEF2FF', darkBg: '#0E0A1F', iconColor: '#4527A0', darkIconColor: '#9575CD' },
+  { id: 'outdoors',      label: 'Outdoors',         icon: 'trees',        emoji: '🌳', bg: '#F0FFF4', darkBg: '#081A0C', iconColor: '#1B5E20', darkIconColor: '#43A85A' },
+  { id: 'learning',      label: 'Learning',         icon: 'book-open',    emoji: '🎓', bg: '#F0F8FF', darkBg: '#081018', iconColor: '#01579B', darkIconColor: '#4D9FE8' },
+  { id: 'social',        label: 'Social',           icon: 'users',        emoji: '👥', bg: '#FFF5F3', darkBg: '#1A0810', iconColor: '#880E4F', darkIconColor: '#E040A0' },
+  { id: 'arts',          label: 'Arts & culture',   icon: 'palette',      emoji: '🎨', bg: '#FFF8E1', darkBg: '#1A0E00', iconColor: '#E65100', darkIconColor: '#FF7F3E' },
+  { id: 'other',         label: 'Other',            icon: 'sparkles',     emoji: '✨', bg: '#F5F5F5', darkBg: '#181818', iconColor: '#555555', darkIconColor: '#999999' },
 ] as const;
 
 export const CATEGORY_PRESETS: Record<string, { when: string; spots: number; cost: string }> = {
